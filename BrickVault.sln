@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BrickVaultConsole", "..\Bri
 		{0FC1CC8E-4773-4FD0-B210-36078EDF959D} = {0FC1CC8E-4773-4FD0-B210-36078EDF959D}
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BrickVaultUnitTests", "..\BrickVaultUnitTests\BrickVaultUnitTests.csproj", "{1200605B-AFE3-492A-9C1A-0654D15239D7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,6 +26,10 @@ Global
 		{289570C9-B4FD-4316-9F28-B7C22A3A2F94}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{289570C9-B4FD-4316-9F28-B7C22A3A2F94}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{289570C9-B4FD-4316-9F28-B7C22A3A2F94}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1200605B-AFE3-492A-9C1A-0654D15239D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1200605B-AFE3-492A-9C1A-0654D15239D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1200605B-AFE3-492A-9C1A-0654D15239D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1200605B-AFE3-492A-9C1A-0654D15239D7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
