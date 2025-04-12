@@ -7,7 +7,6 @@ namespace BrickVault.Decompressors
         private const int MaxChunkSize = 0x40000;
         private const uint Lz2kHeader = 0x4C5A324B;
 
-        // Globals used across functions
         private static byte[] compressedFile = new byte[MaxChunkSize];
         private static int tmpSrcOffs;
         private static int tmpSrcSize;
@@ -26,46 +25,27 @@ namespace BrickVault.Decompressors
         private static ushort[] parallelDict1 = new ushort[1024];
         private static ushort[] largeWordDict = new ushort[4096];
 
-        public static long Unlz2k(Stream src, int srcSize, Stream dest, int destSize)
+        public static long Unlz2k(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
         {
-            //long fileEnd = fileSize;
-
-            ////src.Position = 0;
-            //long bytesWritten = 0;
-
-            //long origStart = src.Position;
-
-            //while (src.Position - origStart < fileEnd)
-            //{
-            //    uint header = ReadUInt32(src, true); // Big-endian
-            //    if (header != Lz2kHeader)
-            //    {
-            //        throw new InvalidDataException($"Invalid LZ2K file or chunk at position {src.Position - 4}");
-            //    }
-
-            //    uint unpacked = ReadUInt32(src, false); // Little-endian
-            //    uint packed = ReadUInt32(src, false); // Little-endian
-            //    bytesWritten += Unlz2kChunk(src, dest, (int)packed, (int)unpacked);
-            //}
-
-            return Unlz2kChunk(src, dest, srcSize, destSize);
+            return Unlz2kChunk(compressed, compressedSize, decompressed, decompressedSize);
         }
 
-        private static int Unlz2kChunk(Stream src, Stream dest, int srcSize, int destSize)
+        private static int Unlz2kChunk(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
         {
-            if (destSize == 0)
+            if (decompressed.Length == 0)
                 return 0;
 
-            src.Read(compressedFile, 0, srcSize);
+            Array.Copy(compressed, 0, compressedFile, 0, compressedSize);
+            compressedFile = compressed;
             tmpSrcOffs = 0;
-            tmpSrcSize = srcSize;
+            tmpSrcSize = compressed.Length;
             bitstream = 0;
             lastByteRead = 0;
             previousBitAlign = 0;
             chunksWithCurrentSetupLeft = 0;
             readOffset = 0;
             literalsToCopy = 0;
-            int bytesLeft = destSize;
+            int bytesLeft = decompressedSize;
             int bytesWritten = 0;
 
             LoadIntoBitstream(32);
@@ -74,7 +54,8 @@ namespace BrickVault.Decompressors
             {
                 int chunkSize = Math.Min(bytesLeft, 8192);
                 ReadAndDecrypt(chunkSize, tmpChunk);
-                dest.Write(tmpChunk, 0, chunkSize);
+                //dest.Write(tmpChunk, 0, chunkSize);
+                Array.Copy(tmpChunk, 0, decompressed, bytesWritten, chunkSize);
                 bytesWritten += chunkSize;
                 bytesLeft -= chunkSize;
             }
@@ -397,14 +378,12 @@ namespace BrickVault.Decompressors
             ushort[] destDict = new ushort[18];
             destDict[1] = 0;
 
-            // Populate srcDict with counts of each byte value
             for (int i = 0; i < bytesLen; i++)
             {
                 byte tmp = bytes[i];
                 srcDict[tmp]++;
             }
 
-            // Build the destination dictionary
             byte shift = 14;
             int ind = 1;
             ushort low, high;
@@ -436,7 +415,6 @@ namespace BrickVault.Decompressors
                 throw new InvalidOperationException("Bad table");
             }
 
-            // Adjust destDict and srcDict based on pivot
             shift = (byte)(pivot - 1);
             byte tmpVal = (byte)(16 - pivot);
             byte tmpValCopy = tmpVal;
@@ -471,7 +449,6 @@ namespace BrickVault.Decompressors
                 return;
             }
 
-            // Populate words
             shift = (byte)(15 - pivot);
             ushort mask = (ushort)(1 << shift);
             ushort bytesLenCopy = bytesLen;

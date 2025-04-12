@@ -1,20 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Runtime.ExceptionServices;
-using System.Runtime.InteropServices.Marshalling;
-using System.Runtime.Intrinsics.Wasm;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BrickVault.Types
+﻿namespace BrickVault.Types
 {
-    internal class DAT_v12 : DATFile
+    internal class DAT_v12 : DAT_v11
     {
-        internal static long CRC_FNV_OFFSET_64 = -3750763034362895579;
-
-        internal static long CRC_FNV_PRIME_64 = 1099511628211;
+        public override uint Version() => 12;
 
         public DAT_v12(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize) 
         {
@@ -51,7 +39,7 @@ namespace BrickVault.Types
                     orderId = file.ReadShort(true);
                 }
 
-                short someId = file.ReadShort(true);
+                short unkId = file.ReadShort(true);
                 short fileId = file.ReadShort(true);
 
                 long previousPosition = file.Position;

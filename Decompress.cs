@@ -27,11 +27,13 @@ namespace BrickVault
 
         public static int LZ2K(byte[] compressedData, int compressedSize, byte[] decompressedData, int decompressedSize)
         {
-            MemoryStream compressedStream = new MemoryStream(compressedData, 0, compressedSize);
-            MemoryStream decompressedStream = new MemoryStream(decompressedSize);
-            int output = (int)Decompressors.LZ2K.Unlz2k(compressedStream, compressedSize, decompressedStream, decompressedSize);
-            decompressedStream.Position = 0;
-            decompressedStream.Read(decompressedData, 0, output);
+            int output = (int)Decompressors.LZ2K.Unlz2k(compressedData, compressedSize, decompressedData, decompressedSize);
+            return output;
+        }
+
+        public static int DFLT(byte[] compressedData, int compressedSize, byte[] decompressedData, int decompressedSize)
+        {
+            int output = (int)Decompressors.DFLT.UnDFLT(compressedData, compressedSize, decompressedData, decompressedSize);
             return output;
         }
     }

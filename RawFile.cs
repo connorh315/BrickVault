@@ -6,10 +6,23 @@ using System.Threading.Tasks;
 
 namespace BrickVault
 {
-    internal class RawFile
+    public class RawFile
     {
         public Stream fileStream;
         public RawFile(Stream stream) { fileStream = stream; }
+
+        private string fileLocation;
+
+        public RawFile(string fileLocation)
+        {
+            fileStream = File.OpenRead(fileLocation);
+            this.fileLocation = fileLocation;
+        }
+
+        public RawFile CreateView()
+        {
+            return new RawFile(fileLocation);
+        }
 
         public long Position => fileStream.Position;
 

@@ -1,10 +1,16 @@
-﻿namespace BrickVault.Types
-{
-    internal class DAT_v13 : DAT_v12
-    {
-        public override uint Version() => 13;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-        public DAT_v13(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+namespace BrickVault.Types
+{
+    internal class DAT_v11 : DATFile
+    {
+        public override uint Version() => 11;
+
+        public DAT_v11(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }
@@ -39,7 +45,7 @@
                     orderId = file.ReadShort(true);
                 }
 
-                short someId = file.ReadShort(true);
+                short unkId = file.ReadShort(true);
                 short fileId = file.ReadShort(true);
 
                 long previousPosition = file.Position;
@@ -90,9 +96,9 @@
                 uint decompressedSize = file.ReadUInt(true);
 
                 long compressionType = 0;
-                compressionType = fileOffset;
-                compressionType >>= 56;
-                fileOffset &= 0xffffffffffffff;
+                compressionType = decompressedSize;
+                decompressedSize &= 0x7fffffff;
+                compressionType >>= 31;
 
                 Files[i] = new ArchiveFile
                 {
@@ -108,7 +114,7 @@
 
             for (int i = 0; i < fileCount; i++)
             {
-                long val = file.ReadLong(true);
+                uint val = file.ReadUInt(true);
                 crcs[i] = val;
                 crcLookup[val] = i;
             }
@@ -118,11 +124,11 @@
             {
                 string path = paths[i];
 
-                long crc = CRC_FNV_OFFSET_64;
+                uint crc = CRC_FNV_OFFSET_32;
                 foreach (char character in path.Substring(1).ToUpper())
                 {
                     crc ^= character;
-                    crc *= CRC_FNV_PRIME_64;
+                    crc *= CRC_FNV_PRIME_32;
                 }
 
                 if (crcLookup.ContainsKey(crc))
