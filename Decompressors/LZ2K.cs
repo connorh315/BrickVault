@@ -7,30 +7,30 @@ namespace BrickVault.Decompressors
         private const int MaxChunkSize = 0x40000;
         private const uint Lz2kHeader = 0x4C5A324B;
 
-        private static byte[] compressedFile = new byte[MaxChunkSize];
-        private static int tmpSrcOffs;
-        private static int tmpSrcSize;
-        private static int tmpDestSize;
-        private static uint bitstream;
-        private static byte lastByteRead;
-        private static byte previousBitAlign;
-        private static ushort chunksWithCurrentSetupLeft;
-        private static uint readOffset;
-        private static int literalsToCopy;
-        private static byte[] tmpChunk = new byte[8192];
-        private static byte[] smallByteDict = new byte[20];
-        private static byte[] largeByteDict = new byte[510];
-        private static ushort[] smallWordDict = new ushort[256];
-        private static ushort[] parallelDict0 = new ushort[1024];
-        private static ushort[] parallelDict1 = new ushort[1024];
-        private static ushort[] largeWordDict = new ushort[4096];
+        private byte[] compressedFile = new byte[MaxChunkSize];
+        private int tmpSrcOffs;
+        private int tmpSrcSize;
+        private int tmpDestSize;
+        private uint bitstream;
+        private byte lastByteRead;
+        private byte previousBitAlign;
+        private ushort chunksWithCurrentSetupLeft;
+        private uint readOffset;
+        private int literalsToCopy;
+        private byte[] tmpChunk = new byte[8192];
+        private byte[] smallByteDict = new byte[20];
+        private byte[] largeByteDict = new byte[510];
+        private ushort[] smallWordDict = new ushort[256];
+        private ushort[] parallelDict0 = new ushort[1024];
+        private ushort[] parallelDict1 = new ushort[1024];
+        private ushort[] largeWordDict = new ushort[4096];
 
         public static long Unlz2k(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
         {
-            return Unlz2kChunk(compressed, compressedSize, decompressed, decompressedSize);
+            return new LZ2K().Unlz2kChunk(compressed, compressedSize, decompressed, decompressedSize);
         }
 
-        private static int Unlz2kChunk(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
+        private int Unlz2kChunk(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
         {
             if (decompressed.Length == 0)
                 return 0;
@@ -63,7 +63,7 @@ namespace BrickVault.Decompressors
             return bytesWritten;
         }
 
-        private static void LoadIntoBitstream(byte bits)
+        private void LoadIntoBitstream(byte bits)
         {
             bitstream <<= bits;
             if (bits > previousBitAlign)
@@ -80,7 +80,7 @@ namespace BrickVault.Decompressors
             bitstream |= (uint)(lastByteRead >> previousBitAlign);
         }
 
-        private static void ReadAndDecrypt(int chunkSize, byte[] outBuffer)
+        private void ReadAndDecrypt(int chunkSize, byte[] outBuffer)
         {
             int outputOffs = 0;
             literalsToCopy--;
@@ -125,7 +125,7 @@ namespace BrickVault.Decompressors
             }
         }
 
-        private static uint ReadUInt32(Stream src, bool bigEndian)
+        private uint ReadUInt32(Stream src, bool bigEndian)
         {
             Span<byte> buffer = stackalloc byte[4];
             src.Read(buffer);
@@ -140,7 +140,7 @@ namespace BrickVault.Decompressors
             }
         }
 
-        private static uint DecodeBitstream()
+        private uint DecodeBitstream()
         {
             if (chunksWithCurrentSetupLeft == 0)
             {
@@ -175,7 +175,7 @@ namespace BrickVault.Decompressors
             return tmpVal;
         }
 
-        private static uint DecodeBitstreamForLiterals()
+        private uint DecodeBitstreamForLiterals()
         {
             byte tmpOffs = (byte)(bitstream >> 24);
             ushort tmpVal = smallWordDict[tmpOffs];
@@ -212,7 +212,7 @@ namespace BrickVault.Decompressors
             return tmpBitstream + (1u << tmpVal);
         }
 
-        private static void FillSmallDicts(byte length, byte bits, byte specialInd)
+        private void FillSmallDicts(byte length, byte bits, byte specialInd)
         {
             uint tmpVal = bitstream >> (32 - bits);
             LoadIntoBitstream(bits);
@@ -283,7 +283,7 @@ namespace BrickVault.Decompressors
             FillWordsUsingBytes(length, smallByteDict, 8, smallWordDict);
         }
 
-        private static void FillLargeDicts()
+        private void FillLargeDicts()
         {
             short tmpVal = (short)(bitstream >> 23);
             LoadIntoBitstream(9);
@@ -372,7 +372,7 @@ namespace BrickVault.Decompressors
             FillWordsUsingBytes(510, largeByteDict, 12, largeWordDict);
         }
 
-        private static void FillWordsUsingBytes(ushort bytesLen, byte[] bytes, byte pivot, ushort[] words)
+        private void FillWordsUsingBytes(ushort bytesLen, byte[] bytes, byte pivot, ushort[] words)
         {
             ushort[] srcDict = new ushort[17];
             ushort[] destDict = new ushort[18];
