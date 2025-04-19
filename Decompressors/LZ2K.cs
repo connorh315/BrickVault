@@ -2,7 +2,7 @@
 
 namespace BrickVault.Decompressors
 {
-    internal class LZ2K
+    internal class LZ2K : Decompressor
     {
         private const int MaxChunkSize = 0x40000;
         private const uint Lz2kHeader = 0x4C5A324B;
@@ -25,6 +25,34 @@ namespace BrickVault.Decompressors
         private ushort[] parallelDict1 = new ushort[1024];
         private ushort[] largeWordDict = new ushort[4096];
 
+        public override int Decompress(byte[] input, int inputLength, byte[] output, int outputLength)
+        {
+            return Unlz2kChunk(input, inputLength, output, outputLength);
+        }
+
+        public override void Reset()
+        {
+            tmpSrcOffs = 0;
+            tmpSrcSize = 0;
+            tmpDestSize = 0;
+            bitstream = 0;
+            lastByteRead = 0;
+            previousBitAlign = 0;
+            chunksWithCurrentSetupLeft = 0;
+            readOffset = 0;
+            literalsToCopy = 0;
+
+            Array.Clear(tmpChunk);
+            Array.Clear(smallByteDict);
+            Array.Clear(largeByteDict);
+            Array.Clear(smallWordDict);
+            Array.Clear(parallelDict0);
+            Array.Clear(parallelDict1);
+            Array.Clear(largeWordDict);
+
+            Array.Clear(compressedFile);
+        }
+
         public static long Unlz2k(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
         {
             return new LZ2K().Unlz2kChunk(compressed, compressedSize, decompressed, decompressedSize);
@@ -32,13 +60,13 @@ namespace BrickVault.Decompressors
 
         private int Unlz2kChunk(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
         {
-            if (decompressed.Length == 0)
+            if (decompressedSize == 0)
                 return 0;
 
-            Array.Copy(compressed, 0, compressedFile, 0, compressedSize);
-            compressedFile = compressed;
+            Array.Copy(compressed, 0, compressedFile, 0, compressedSize); // TODO: Could really do with just copying over the reference, rather than having a separate buffer
+            //compressedFile = compressed;
             tmpSrcOffs = 0;
-            tmpSrcSize = compressed.Length;
+            tmpSrcSize = compressedSize;
             bitstream = 0;
             lastByteRead = 0;
             previousBitAlign = 0;

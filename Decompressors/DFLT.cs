@@ -6,8 +6,15 @@ using System.Threading.Tasks;
 
 namespace BrickVault.Decompressors
 {
-    public class DFLT
+    public class DFLT : Decompressor
     {
+        DfltContext ctx;
+
+        public DFLT()
+        {
+            ctx = new DfltContext();
+        }
+
         internal static uint DecompressChunk(DfltContext ctx)
         {
             ctx.BitCount = 0;
@@ -39,7 +46,7 @@ namespace BrickVault.Decompressors
                 switch (blockType)
                 {
                     case 2: // Stored/raw block
-                        result = UndfltFunc5(ctx);
+                        result = DecodeStoredBlock(ctx);
                         break;
 
                     case 1: // Fixed Huffman
@@ -374,9 +381,58 @@ namespace BrickVault.Decompressors
             return 1;
         }
 
-        private static int UndfltFunc5(DfltContext ctx)
+        private static int DecodeStoredBlock(DfltContext ctx)
         {
-            throw new NotImplementedException();
+            // Step 1: Align bit buffer to byte boundary
+            int bitsToDiscard = ctx.BitCount & 7;
+            if (bitsToDiscard > 0)
+            {
+                if (ctx.BitCount < bitsToDiscard)
+                    ctx.RefillBuffer();
+
+                ctx.BitBuffer >>= bitsToDiscard;
+                ctx.BitCount -= bitsToDiscard;
+            }
+
+            // Step 2: Read 2 bytes for LEN field
+            byte[] lenBytes = new byte[4];
+            int lenBytesRead = 0;
+
+            // Drain from bit buffer
+            while (ctx.BitCount > 0)
+            {
+                lenBytes[lenBytesRead++] = (byte)(ctx.BitBuffer & 0xFF);
+                ctx.BitBuffer >>= 8;
+                ctx.BitCount -= 8;
+            }
+
+            // Read remaining bytes from input
+            while (lenBytesRead < 2)
+            {
+                lenBytes[lenBytesRead++] = ctx.HasInput ? ctx.ReadByte() : (byte)0;
+            }
+
+            int len = (lenBytes[1] << 8) | lenBytes[0];
+
+            // Step 4: Copy leftover bits if any
+            if (lenBytesRead > 2)
+            {
+                int leftover = lenBytesRead - 2;
+                for (int i = 0; i < leftover; i++)
+                    ctx.WriteByte(lenBytes[2 + i]);
+                len -= leftover;
+            }
+
+            // Step 5: Make sure enough input is available
+            if (ctx.InputOffset + len > ctx.Input.Length)
+                return 1;  // Not enough input
+
+            // Step 6: Copy literal block
+            Array.Copy(ctx.Input, ctx.InputOffset, ctx.Output, ctx.OutputOffset, len);
+            ctx.InputOffset += len;
+            ctx.OutputOffset += len;
+
+            return 1;
         }
 
         public static long UnDFLT(byte[] compressed, int compressedSize, byte[] decompressed, int decompressedSize)
@@ -388,6 +444,21 @@ namespace BrickVault.Decompressors
             };
 
             return DecompressChunk(ctx);
+        }
+
+        public override int Decompress(byte[] input, int inputLength, byte[] output, int outputLength)
+        {
+            ctx.Input = input;
+            ctx.Output = output;
+            ctx.InputLength = inputLength;
+            ctx.OutputLength = outputLength;
+
+            return (int)DecompressChunk(ctx);
+        }
+
+        public override void Reset()
+        {
+            ctx.Reset();
         }
     }
 
@@ -436,6 +507,16 @@ namespace BrickVault.Decompressors
             return Symbols[finalIndex];
 
         }
+
+        public void Reset()
+        {
+            Array.Clear(FastLookup);
+            Array.Clear(BitLengths);
+            Array.Clear(Symbols);
+            Array.Clear(Bases);
+            Array.Clear(Limits);
+            Array.Clear(Thresholds);
+        }
     }
 
     public class DfltContext
@@ -446,15 +527,17 @@ namespace BrickVault.Decompressors
 
         // Input and output spans
         public byte[] Input;
+        public int InputLength;
         public int InputOffset;
         public byte[] Output;
+        public int OutputLength;
         public int OutputOffset;
 
         // Internal decode pointer (equivalent to ptr)
         public int WritePtr => OutputOffset;
 
         // Utility to check how much input is left
-        public bool HasInput => InputOffset < Input.Length;
+        public bool HasInput => InputOffset < InputLength;
 
         public byte ReadByte()
         {
@@ -464,7 +547,7 @@ namespace BrickVault.Decompressors
 
         public void WriteByte(byte b)
         {
-            if (OutputOffset < Output.Length)
+            if (OutputOffset < OutputLength)
                 Output[OutputOffset++] = b;
         }
 
@@ -493,6 +576,21 @@ namespace BrickVault.Decompressors
 
         // Temporary buffer for reading code lengths
         public byte[] CodeLengths = new byte[512];
+
+        public void Reset()
+        {
+            BitCount = 0;
+            BitBuffer = 0;
+            InputOffset = 0;
+            OutputOffset = 0;
+
+            LiteralTable.Reset();
+            DistanceTable.Reset();
+            DispatchTable.Reset();
+
+            Array.Clear(HuffmanDispatchTable);
+            Array.Clear(CodeLengths);
+        }
     }
 
     internal static class DfltTables

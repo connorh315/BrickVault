@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 
 namespace BrickVault.Types
 {
-    internal class DAT_v11 : DATFile
+    internal class DAT_v08 : DATFile
     {
-        public override uint Version() => 11;
+        public override uint Version() => 8;
 
-        public DAT_v11(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+        public DAT_v08(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }
@@ -82,23 +82,17 @@ namespace BrickVault.Types
 
             for (int i = 0; i < fileCount; i++)
             {
-                long fileOffset;
-                if (minorVersion < 2)
-                {
-                    fileOffset = file.ReadUInt(true);
-                }
-                else
-                {
-                    fileOffset = file.ReadLong(true);
-                }
+                long fileOffset = file.ReadUInt(true);
 
                 uint compressedSize = file.ReadUInt(true);
                 uint decompressedSize = file.ReadUInt(true);
 
-                long compressionType = 0;
-                compressionType = decompressedSize;
+                uint compressionType = file.ReadUInt(true);
+
                 decompressedSize &= 0x7fffffff;
-                compressionType >>= 31;
+                fileOffset = (fileOffset << 8) + (compressionType & 0x00ffffff);
+
+                compressionType >>= 24;
 
                 Files[i] = new ArchiveFile
                 {
@@ -159,7 +153,7 @@ namespace BrickVault.Types
 
             for (int i = 0; i < fileCount; i++)
             {
-                if (Files[i].Path == null )
+                if (Files[i].Path == null)
                 {
                     Console.WriteLine($"Id: {i} empty");
                 }

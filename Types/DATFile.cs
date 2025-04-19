@@ -21,17 +21,14 @@ namespace BrickVault.Types
         internal uint trailerOffset;
         internal uint trailerSize;
 
-        internal DATFile(RawFile file, uint trailerOffset, uint trailerSize) 
-        { 
-            this.file = file; 
+        internal DATFile(RawFile file, uint trailerOffset, uint trailerSize)
+        {
+            this.file = file;
             this.trailerOffset = trailerOffset;
             this.trailerSize = trailerSize;
 
             Read();
         }
-
-        internal byte[] compressedShare = new byte[131072];
-        internal byte[] decompressedShare = new byte[524288];
 
         public static DATFile Open(string fileLocation)
         {
@@ -47,33 +44,55 @@ namespace BrickVault.Types
 
             uint trailerSize = file.ReadUInt();
 
-            file.Seek(trailerOffset + 4, SeekOrigin.Begin); // 4 bytes being skipped over here is just trailer length again
+            file.Seek(trailerOffset, SeekOrigin.Begin);
+            int determinant = file.ReadInt();
 
             int magicBytes1 = file.ReadInt();
             uint magicBytes2 = file.ReadUInt();
 
             uint datVersion, fileCount;
 
-            if (magicBytes2 != 0x3443432e && magicBytes2 != 0x2e434334 && magicBytes1 != 0x3443432e && magicBytes1 != 0x2e434334)
+            if (determinant < 0 && determinant > -20) // Covers the versions
             {
-                datVersion = (uint)Math.Abs(magicBytes1);
+                datVersion = (uint)Math.Abs(determinant);
             }
             else
             {
-                datVersion = (uint)Math.Abs(file.ReadInt(true));
+                if (magicBytes2 != 0x3443432e && magicBytes2 != 0x2e434334 && magicBytes1 != 0x3443432e && magicBytes1 != 0x2e434334)
+                {
+                    datVersion = (uint)Math.Abs(magicBytes1);
+                }
+                else
+                {
+                    datVersion = (uint)Math.Abs(file.ReadInt(true));
+                }
             }
 
-            Console.WriteLine(trailerOffset);
+            Console.WriteLine($"Archive Name: {Path.GetFileName(fileLocation)}");
+            Console.WriteLine($"Trailer offset: {trailerOffset}");
+            Console.WriteLine($"Archive version: {datVersion}");
 
             DATFile result = null;
 
             switch (datVersion)
             {
-                case 11:
+                case 2:
+                case 3: // LIJ2, 
+                case 4: // LB2, LHP2, LPOTC, LHP1
+                    return new DAT_v04(file, trailerOffset, trailerSize);
+                case 5: // LHO, LMSH, LOTR, LCU
+                    return new DAT_v05(file, trailerOffset, trailerSize);
+                case 6: // LB3
+                    //return new DAT_v06(file, trailerOffset, trailerSize);
+                case 7: // LDI, LJW
+                    return new DAT_v07(file, trailerOffset, trailerSize);
+                case 8: // LMA, TFA
+                    return new DAT_v08(file, trailerOffset, trailerSize);
+                case 11: // Worlds 
                     return new DAT_v11(file, trailerOffset, trailerSize);
-                case 12:
+                case 12: // LMSH2, LM2VG, LIN, LDCSV, LNI
                     return new DAT_v12(file, trailerOffset, trailerSize);
-                case 13:
+                case 13: // TSS
                     return new DAT_v13(file, trailerOffset, trailerSize);
                 default:
                     Console.WriteLine($"Unknown DAT version {datVersion}");
@@ -85,11 +104,15 @@ namespace BrickVault.Types
 
         internal abstract void Read();
 
-        internal void Extract(ArchiveFile extract, Stream write, RawFile file)
+        internal int counter = 0;
+
+        internal void Extract(ArchiveFile extract, Stream write, RawFile file, byte[] compressedShare, byte[] decompressedShare)
         {
+            counter++;
+
             file.Seek(extract.Offset, SeekOrigin.Begin);
 
-            if (extract.DecompressedSize != extract.CompressedSize)
+            if (extract.DecompressedSize != extract.CompressedSize || extract.CompressionType != 0) // (extraction.compressionType != 0 is for LMSH_GAME1 where 2 files, despite being "compressed" outputs a file as the same size as the comp. input")
             {
                 int totalDecompressed = 0;
                 while (totalDecompressed < extract.DecompressedSize)
@@ -97,40 +120,42 @@ namespace BrickVault.Types
                     string comType = file.ReadString(4);
                     int compressedSize = file.ReadInt();
                     int decompressedSize = file.ReadInt();
-                    long pos = file.Position;
-                    file.ReadInto(compressedShare, compressedSize);
-                    switch (comType)
-                    {
-                        case "OODL":
-                            Decompress.Oodle(compressedShare, compressedSize, decompressedShare, decompressedSize);
-                            break;
-                        case "ZIPX":
-                            Decompress.ZIPX(compressedShare, compressedSize, decompressedShare, decompressedSize);
-                            break;
-                        case "LZ2K": // Reversed compressed and uncompressed size...
-                            file.Seek(pos + decompressedSize, SeekOrigin.Begin); // need to move the seek header back to the correct position as it will have "over-read" the data
-                            (decompressedSize, compressedSize) = (compressedSize, decompressedSize);
-                            if (compressedSize == decompressedSize)
-                            {
-                                Array.Copy(compressedShare, 0, decompressedShare, 0, compressedSize);
+                    if (compressedSize != decompressedSize || (compressedSize == decompressedSize && comType == "ZIPX"))
+                    { // Sometimes at the end of a collection of chunks, the final chunk might be stored raw, despite previous chunks being compressed - This accounts for that scenario
+                        long pos = file.Position;
+                        file.ReadInto(compressedShare, compressedSize);
+                        switch (comType)
+                        {
+                            case "OODL":
+                                Decompress.Oodle(compressedShare, compressedSize, decompressedShare, decompressedSize);
                                 break;
-                            }
-                            try
-                            {
+                            case "ZIPX":
+                                Decompress.ZIPX(compressedShare, compressedSize, decompressedShare, decompressedSize);
+                                break;
+                            case "LZ2K": // Reversed compressed and uncompressed size...
+                                file.Seek(pos + decompressedSize, SeekOrigin.Begin); // need to move the seek header back to the correct position as it will have "over-read" the data
+                                (decompressedSize, compressedSize) = (compressedSize, decompressedSize);
+                                if (compressedSize == decompressedSize)
+                                {
+                                    Array.Copy(compressedShare, 0, decompressedShare, 0, compressedSize);
+                                    break;
+                                }
                                 Decompress.LZ2K(compressedShare, compressedSize, decompressedShare, decompressedSize);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine("LZ2K extract Failed");
-                                return;
-                            }
-                            break;
-                        case "DFLT":
-                            Decompress.DFLT(compressedShare, compressedSize, decompressedShare, decompressedSize);
-                            break;
-                        default:
-                            Console.WriteLine("Unknown compression type: {0}", comType);
-                            break;
+                                break;
+                            case "DFLT":
+                                Decompress.DFLT(compressedShare, compressedSize, decompressedShare, decompressedSize);
+                                break;
+                            case "RFPK":
+                                Decompress.RFPK(compressedShare, compressedSize, decompressedShare, decompressedSize);
+                                break;
+                            default:
+                                Console.WriteLine("Unknown compression type: {0}", comType);
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        file.ReadInto(decompressedShare, decompressedSize);
                     }
 
                     write.Write(decompressedShare, 0, decompressedSize);
@@ -148,9 +173,11 @@ namespace BrickVault.Types
             }
         }
 
+        internal byte[] compressedShare = new byte[131072];
+        internal byte[] decompressedShare = new byte[524288];
         public virtual void ExtractFile(ArchiveFile extract, Stream write)
         {
-            Extract(extract, write, file);
+            Extract(extract, write, file, compressedShare, decompressedShare);
         }
 
         private string PreparePath(string outputLocation, ArchiveFile file)
@@ -198,6 +225,9 @@ namespace BrickVault.Types
 
         private void ExtractByThread(ArchiveFile[] files, int start, int end, string outputLocation, ThreadedExtractionCtx threaded)
         {
+            byte[] compressedShare = new byte[131072];
+            byte[] decompressedShare = new byte[524288];
+
             RawFile threadView = file.CreateView();
 
             for (int i = start; i < end; i++)
@@ -208,7 +238,7 @@ namespace BrickVault.Types
 
                 using (FileStream outputFile = File.OpenWrite(path))
                 {
-                    Extract(file, outputFile, threadView);
+                    Extract(file, outputFile, threadView, compressedShare, decompressedShare);
 
                     threaded.Increment();
                 }
