@@ -1,5 +1,8 @@
 ﻿# BrickVault 1.0.0
-![BrickVault icon](Images/brickvaultico.png)
+<p align="center">
+	<img src="Images/brickvaultico.png" width="250">
+</p>
+
 A cross-platform archive extractor for *all* LEGO TTGames
 
 ## Dependencies
