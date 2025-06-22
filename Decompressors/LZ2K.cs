@@ -2,7 +2,7 @@
 
 namespace BrickVault.Decompressors
 {
-    internal class LZ2K : Decompressor
+    public class LZ2K : Decompressor
     {
         private const int MaxChunkSize = 0x40000;
         private const uint Lz2kHeader = 0x4C5A324B;

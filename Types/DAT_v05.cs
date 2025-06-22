@@ -13,7 +13,7 @@ namespace BrickVault.Types
     {
         public override uint Version() => 5;
 
-        public DAT_v05(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+        public DAT_v05(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }

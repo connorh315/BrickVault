@@ -4,7 +4,7 @@
     {
         public override uint Version() => 13;
 
-        public DAT_v13(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+        public DAT_v13(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }
@@ -24,7 +24,7 @@
             file.Seek(segmentsOffset + segmentsSize + 4, SeekOrigin.Begin);
 
             string[] folders = new string[segmentsCount];
-            string[] paths = new string[segmentsCount];
+            string[] paths = new string[fileCount];
 
             int nodeId = 0;
 
@@ -33,10 +33,10 @@
                 int nameOffset = file.ReadInt(true);
                 ushort folderId = file.ReadUShort(true);
 
-                short orderId = 0;
+                ushort orderId = 0;
                 if (minorVersion >= 2)
                 {
-                    orderId = file.ReadShort(true);
+                    orderId = file.ReadUShort(true);
                 }
 
                 short someId = file.ReadShort(true);
@@ -57,7 +57,7 @@
 
                     if (fileId != 0)
                     {
-                        paths[nodeId] = pathName;
+                        paths[orderId] = pathName;
                         nodeId++;
                     }
                     else
@@ -99,42 +99,51 @@
                     Offset = fileOffset,
                     CompressedSize = compressedSize,
                     DecompressedSize = decompressedSize,
-                    CompressionType = (uint)compressionType
+                    CompressionType = (uint)compressionType,
+                    Path = paths[i]
                 };
             }
 
-            long[] crcs = new long[fileCount];
-            Dictionary<long, int> crcLookup = new Dictionary<long, int>();
+            //long[] crcs = new long[fileCount];
+            //Dictionary<long, int> crcLookup = new Dictionary<long, int>();
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                long val = file.ReadLong(true);
-                crcs[i] = val;
-                crcLookup[val] = i;
-            }
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    long val = file.ReadLong(true);
+            //    crcs[i] = val;
+            //    crcLookup[val] = i;
+            //}
 
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                string path = paths[i];
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    string path = paths[i];
 
-                long crc = CRC_FNV_OFFSET_64;
-                foreach (char character in path.Substring(1).ToUpper())
-                {
-                    crc ^= character;
-                    crc *= CRC_FNV_PRIME_64;
-                }
+            //    long crc = CRC_FNV_OFFSET_64;
+            //    foreach (char character in path.Substring(1).ToUpper())
+            //    {
+            //        crc ^= character;
+            //        crc *= CRC_FNV_PRIME_64;
+            //    }
 
-                if (crcLookup.ContainsKey(crc))
-                {
-                    int index = crcLookup[crc];
-                    Files[index].Path = path;
-                }
-                else
-                {
-                    Console.WriteLine("Could not find CRC for file: {0}", path);
-                }
-            }
+            //    if (crcLookup.ContainsKey(crc))
+            //    {
+            //        int index = crcLookup[crc];
+            //        Files[index].Path = path;
+            //    }
+            //    else
+            //    {
+            //        Console.WriteLine("Could not find CRC for file: {0}", path);
+            //    }
+            //}
+
+            //using (var output = new StreamWriter(@"A:\og.txt"))
+            //{
+            //    foreach (var file in Files)
+            //    {
+            //        output.WriteLine(file.Path);
+            //    }
+            //}
         }
     }
 }

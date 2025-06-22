@@ -5,6 +5,7 @@ public class ThreadedExtractionCtx
     public int Extracted = 0;
     public int Total = 0;
     public int TotalThreads = 0;
+    public bool DisplayOutput = false;
     public object LockObject = new object();
     public CancellationTokenSource Cancel;
 

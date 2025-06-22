@@ -4,15 +4,16 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
 namespace BrickVault.Types
 {
-    internal class DAT_v07 : DATFile
+    internal class DAT_v01 : DATFile
     {
-        public override uint Version() => 7;
+        public override uint Version() => 1;
 
-        public DAT_v07(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+        public DAT_v01(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }
@@ -22,8 +23,6 @@ namespace BrickVault.Types
             public short previousIndex = 0;
             public short nextIndex = 0;
             public string segment = "";
-            public short quickParentIndex;
-            public short fileIndex;
 
             public SegmentData() { }
         }
@@ -45,11 +44,6 @@ namespace BrickVault.Types
 
                 uint compressionType = file.ReadUInt();
 
-                decompressedSize &= 0x7fffffff;
-                fileOffset = (fileOffset << 8) + (compressionType >> 24);
-
-                compressionType &= 0xff;
-
                 Files[i] = new ArchiveFile
                 {
                     Offset = fileOffset,
@@ -63,22 +57,21 @@ namespace BrickVault.Types
 
             SegmentData[] segments = new SegmentData[pathsCount];
 
-            long pathsOffset = file.Position + (pathsCount * 12) + 4; // 12 bytes for each path "entry", +4 for the size of the names block
+            long pathsOffset = file.Position + (pathsCount * 8) + 4; // 8 bytes for each path "entry", +4 for the size of the names block
 
             for (int i = 0; i < pathsCount; i++)
             {
                 short next = file.ReadShort(); // This actually represents one of two things, if +ve then it is not a complete path and the value is the next segment, if -ve then the unsigned value represents the fileIndex, useful when the actual fileIndex has not been populated.
                 short prev = file.ReadShort();
                 int segOffset = file.ReadInt();
-                short quickParentIndex = file.ReadShort();
-                short fileIndex = file.ReadShort(); // Sometimes exists (LDI_WIIU), sometimes doesn't (LJW_PC_GAME0-...)
+
 
                 string segmentName = "";
                 if (segOffset >= 0)
                 {
                     long originalLocation = file.Position;
                     file.Seek(pathsOffset + segOffset, SeekOrigin.Begin);
-                    segmentName = file.ReadNullString();
+                    segmentName = file.ReadNullString().ToLower(); // LSW: TCS (PC)
                     file.Seek(originalLocation, SeekOrigin.Begin);
                 }
 
@@ -87,23 +80,30 @@ namespace BrickVault.Types
                     nextIndex = next,
                     previousIndex = prev,
                     segment = segmentName,
-                    quickParentIndex = quickParentIndex,
-                    fileIndex = fileIndex
                 };
             }
 
             string[] constructionPaths = new string[segments.Length];
 
-            string[] fullPaths = new string[fileCount];
+            List<string> test = new List<string>();
 
+            string filePath = "";
             for (int i = 1; i < segments.Length; i++) // i = 0 is just root directory
             {
                 SegmentData seg = segments[i];
-                constructionPaths[i] = constructionPaths[seg.quickParentIndex] + seg.segment + (seg.nextIndex > 0 ? '\\' : "");
+
+                if (seg.previousIndex != 0)
+                {
+                    filePath = test[seg.previousIndex - 1];
+                }
+
+                test.Add(filePath);
+
+                filePath += '\\' + seg.segment;
 
                 if (seg.nextIndex <= 0)
-                { // Sometimes fileIndex is not populated (i.e. LJW_PC_GAME0) 
-                    Files[Math.Abs(seg.nextIndex)].Path = '\\' + constructionPaths[i];
+                {
+                    Files[Math.Abs(seg.nextIndex)].Path = filePath;
                 }
             }
         }

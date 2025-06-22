@@ -13,7 +13,7 @@ namespace BrickVault.Types
     {
         public override uint Version() => 4;
 
-        public DAT_v04(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+        public DAT_v04(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }
@@ -76,7 +76,7 @@ namespace BrickVault.Types
                 {
                     long originalLocation = file.Position;
                     file.Seek(pathsOffset + segOffset, SeekOrigin.Begin);
-                    segmentName = file.ReadNullString();
+                    segmentName = file.ReadNullString().ToLower(); // LSW: TCS (PC)
                     file.Seek(originalLocation, SeekOrigin.Begin);
                 }
 

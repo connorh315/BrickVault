@@ -4,7 +4,7 @@
     {
         public override uint Version() => 12;
 
-        public DAT_v12(RawFile file, uint trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize) 
+        public DAT_v12(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize) 
         {
             
         }

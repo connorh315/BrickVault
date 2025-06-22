@@ -11,17 +11,17 @@ namespace BrickVault
         public Stream fileStream;
         public RawFile(Stream stream) { fileStream = stream; }
 
-        private string fileLocation;
+        public string FileLocation { get; private set; }
 
         public RawFile(string fileLocation)
         {
             fileStream = File.OpenRead(fileLocation);
-            this.fileLocation = fileLocation;
+            FileLocation = fileLocation;
         }
 
         public RawFile CreateView()
         {
-            return new RawFile(fileLocation);
+            return new RawFile(FileLocation);
         }
 
         public long Position => fileStream.Position;
