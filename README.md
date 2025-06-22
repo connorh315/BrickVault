@@ -15,7 +15,7 @@ This tool has been extensively tested against all games ranging from the origina
 	1. The archives can only be extracted on Windows: The archives are compressed using Oodle, you must place the oo2core_8_win64.dll binary from your game in the tool's directory. **This will not work on macOS**.
 
 ## Getting started
-View the getting started guide [here](support/gettingstarted.md).
+View the getting started guide [here](Support/GettingStarted.md).
 
 ## Features
 - Compared to other tools, BrickVault is comparably faster taking less than a few minutes to extract the largest archives.
