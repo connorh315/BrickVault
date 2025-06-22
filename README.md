@@ -1,4 +1,5 @@
 ﻿# BrickVault 1.0.0
+![BrickVault icon](Images/brickvaultico.png)
 A cross-platform archive extractor for *all* LEGO TTGames
 
 ## Dependencies
