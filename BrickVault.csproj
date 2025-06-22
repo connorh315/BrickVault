@@ -12,4 +12,8 @@
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
     <PackageReference Include="Wasmtime" Version="22.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Images\" />
+  </ItemGroup>
 </Project>
