@@ -8,8 +8,7 @@
 > If you wish to extract files from LEGO Star Wars: The Skywalker Saga (<ins>and you're on a Windows PC</ins>), then you must copy the **oo2core_8_win64.dll** file into the BrickVaultApp directory.
 >
 > If you wish to extract files from LEGO Harry Potter Collection (<ins>and you're on a Windows PC</ins>), then you must place a ".list" file into the BrickVaultApp directory.
-3. If you intend to extract files from the LEGO Star Wars: The Skywalker Saga 
-4. Open BrickVaultApp
+3. Open BrickVaultApp
 
 ## Using BrickVault
 
