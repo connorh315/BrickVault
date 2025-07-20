@@ -65,7 +65,7 @@ namespace BrickVault.Types
 #if DEBUG
         string searchLocation = @"G:\";
 #else
-        string searchLocation = "";
+        string searchLocation = Directory.GetCurrentDirectory();
 #endif
 
         internal override void Read()
@@ -86,29 +86,29 @@ namespace BrickVault.Types
                 }
             }
 
-            string[] paths = File.ReadAllLines(@"C:\Users\Connor\Desktop\LHP_PC_GAME.list");
-            foreach (var path in paths)
-            {
-                AddToDictionary(dict2, path);
-            }
+            //string[] paths = File.ReadAllLines(@"C:\Users\Connor\Desktop\LHP_PC_GAME.list");
+            //foreach (var path in paths)
+            //{
+            //    AddToDictionary(dict2, path);
+            //}
 
-            string[] paths2 = File.ReadAllLines(@"C:\Users\Connor\Desktop\gamedictionary.txt");
-            foreach (var path in paths2)
-            {
-                AddToDictionary(dict2, path);
-            }
+            //string[] paths2 = File.ReadAllLines(@"C:\Users\Connor\Desktop\gamedictionary.txt");
+            //foreach (var path in paths2)
+            //{
+            //    AddToDictionary(dict2, path);
+            //}
 
-            string[] dictionary = File.ReadAllLines(@"C:\Users\Connor\Desktop\dictionary.txt");
-            foreach (var path in dictionary)
-            {
-                AddToDictionary(dict2, path);
-            }
+            //string[] dictionary = File.ReadAllLines(@"C:\Users\Connor\Desktop\dictionary.txt");
+            //foreach (var path in dictionary)
+            //{
+            //    AddToDictionary(dict2, path);
+            //}
 
-            string[] otherdict = File.ReadAllLines(@"C:\Users\Connor\Downloads\hashes2.txt");
-            foreach (var path in otherdict)
-            {
-                AddToDictionary(dict2, path);
-            }
+            //string[] otherdict = File.ReadAllLines(@"C:\Users\Connor\Downloads\hashes2.txt");
+            //foreach (var path in otherdict)
+            //{
+            //    AddToDictionary(dict2, path);
+            //}
 
             //string[] samples = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\AUDIO\LEVELSFX.TXT");
 
@@ -289,7 +289,7 @@ namespace BrickVault.Types
                 else
                 {
                     structure.Add((crc, ""));
-                    //Files[i].Path = $"\\unknown\\{crc:x8}.unk";
+                    Files[i].Path = $"\\unknown\\{crc:x8}.unk";
                 }
             }
             Console.WriteLine($"Accounted for {accounted} / {fileCount}"); // 3907, 3931, 4052
