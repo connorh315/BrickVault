@@ -12,7 +12,7 @@
         public string GetFormattedSize()
         {
             double size = DecompressedSize;
-            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            string[] units = { "B", "KB", "MB", "GB" };
             int unitIndex = 0;
 
             while (size >= 1000 && unitIndex < units.Length - 1)

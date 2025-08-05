@@ -1,11 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
 namespace BrickVault.Types
 {
+    internal class FileSegmentStruct // To move to eventually
+    {
+        public ushort ParentIndex;
+        public short FileIndex;
+        public short FinalChild;
+        public short PreviousSibling;
+        public string CurrentPath;
+    }
+
     internal class DAT_v11 : DATFile
     {
         public override uint Version() => 11;
@@ -133,6 +144,20 @@ namespace BrickVault.Types
                 if (overridePath.Length % 2 == 0) file.ReadByte(); // string is aligned to a 2-byte boundary, so the original parser likely read 2-bytes at a time and then checked if either of them were zero, so there's one byte of padding if the string is even-length
                 short id = file.ReadShort(true);
                 Files[i].Path = overridePath;
+            }
+
+            List<uint> collisionCrcs = new();
+
+            foreach (var coll in collisionsCaught)
+            {
+                uint crc = CRC_FNV_OFFSET_32;
+                foreach (char character in coll.Substring(1).ToUpper())
+                {
+                    crc ^= character;
+                    crc *= CRC_FNV_PRIME_32;
+                }
+
+                collisionCrcs.Add(crc);
             }
 
             for (int i = 0; i < fileCount; i++)
