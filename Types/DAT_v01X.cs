@@ -68,7 +68,7 @@ namespace BrickVault.Types
         string searchLocation = Directory.GetCurrentDirectory();
 #endif
 
-        internal override void Read()
+        internal override void Read(RawFile file)
         {
             file.Seek(trailerOffset + 4, SeekOrigin.Begin);
 

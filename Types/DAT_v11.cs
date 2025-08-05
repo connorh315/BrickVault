@@ -26,7 +26,7 @@ namespace BrickVault.Types
 
         }
 
-        internal override void Read()
+        internal override void Read(RawFile file)
         {
             file.Seek(trailerOffset + 16, SeekOrigin.Begin);
 
