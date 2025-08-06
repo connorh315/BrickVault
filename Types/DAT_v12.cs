@@ -2,7 +2,7 @@
 {
     internal class DAT_v12 : DAT_v11
     {
-        public override uint Version() => 12;
+        public override DATVersion Version => DATVersion.V12;
 
         public DAT_v12(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize) 
         {

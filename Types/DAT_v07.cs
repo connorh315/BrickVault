@@ -10,7 +10,7 @@ namespace BrickVault.Types
 {
     internal class DAT_v07 : DATFile
     {
-        public override uint Version() => 7;
+        public override DATVersion Version => DATVersion.V7;
 
         public DAT_v07(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {

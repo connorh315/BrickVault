@@ -9,6 +9,9 @@ namespace BrickVault
     public class RawFile : IDisposable
     {
         public Stream fileStream;
+
+        private RawFile() { }
+
         public RawFile(Stream stream) { fileStream = stream; }
 
         public string FileLocation { get; private set; }
@@ -18,6 +21,20 @@ namespace BrickVault
             fileStream = File.Open(fileLocation, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
 
             FileLocation = fileLocation;
+        }
+
+        /// <summary>
+        /// Creates a file, meaning that the length is reset to 0.
+        /// Ideal when writing to a file, that may be shorter than the original.
+        /// </summary>
+        /// <param name="fileLocation"></param>
+        /// <returns></returns>
+        public static RawFile Create(string fileLocation)
+        {
+            RawFile createOnly = new RawFile();
+            createOnly.fileStream = File.Create(fileLocation);
+            createOnly.FileLocation = fileLocation;
+            return createOnly;
         }
 
         private bool disposed = false;

@@ -1,19 +1,58 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace BrickVault.Types
 {
     public abstract class DATFile
     {
+        public enum DATVersion
+        {
+            V1 = 1,
+            V2,
+            V3,
+            V4,
+            V5,
+            V6,
+            V7,
+            V8,
+            V9,
+            V10,
+            V11,
+            V12,
+            V13,
+            V1X
+        }
+
+        public abstract DATVersion Version { get; }
+
+        private static string StripSlashFromPath(string path)
+        {
+            if (path.StartsWith("/")) return path.Substring(1);
+
+            return path;
+        }
+
         internal static long CRC_FNV_OFFSET_64 = -3750763034362895579;
         internal static long CRC_FNV_PRIME_64 = 1099511628211;
 
         internal static uint CRC_FNV_OFFSET_32 = 2166136261;
         internal static uint CRC_FNV_PRIME_32 = 0x199933;
 
+        protected static uint CalculateCRC32(string path)
+        {
+            uint crc = CRC_FNV_OFFSET_32;
+            foreach (char character in StripSlashFromPath(path).ToUpper())
+            {
+                crc ^= character;
+                crc *= CRC_FNV_PRIME_32;
+            }
+
+            return crc;
+        }
+
         public ArchiveFile[] Files { get; set; }
 
-        public abstract uint Version();
 
         public string FileLocation;
 
@@ -126,6 +165,22 @@ namespace BrickVault.Types
             }
         }
 
+        public static void BuildFromFolder(DATBuildSettings settings, BuildProgress progress = null)
+        {
+            if (progress == null)
+            {
+                progress = new BuildProgress();
+            }
+
+            if (settings.Version == DATVersion.V11)
+            {
+                DAT_v11.Build(settings, progress);
+                return;
+            }
+
+            throw new NotImplementedException("Cannot build this archive version - No creator implemented!");
+        }
+
         internal abstract void Read(RawFile file);
 
         internal void Extract(ArchiveFile extract, Stream write, RawFile file, byte[] compressedShare, byte[] decompressedShare)
@@ -138,7 +193,7 @@ namespace BrickVault.Types
                 while (totalDecompressed < extract.DecompressedSize)
                 {
                     int decompressedSize = 0;
-                    if (Version() == 1111)
+                    if (Version == DATVersion.V1X)
                     {
                         file.ReadInto(compressedShare, (int)extract.CompressedSize);
                         decompressedSize = Decompress.LZHAM(compressedShare, (int)extract.CompressedSize, decompressedShare, (int)extract.DecompressedSize);
