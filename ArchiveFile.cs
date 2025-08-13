@@ -7,7 +7,11 @@
         public uint DecompressedSize;
         public uint CompressionType;
 
-        public string Path;
+        private string path;
+        public virtual string Path
+        {
+            get => path; set => path = value;
+        }
 
         public string GetFormattedSize()
         {
@@ -22,6 +26,14 @@
             }
 
             return size >= 100 ? $"{(int)size} {units[unitIndex]}" : $"{size:F1} {units[unitIndex]}";
+        }
+
+        public void SetFileData(long offset, uint compressedSize, uint decompressedSize, byte compressionType)
+        {
+            Offset = offset;
+            CompressedSize = compressedSize;
+            DecompressedSize = decompressedSize;
+            CompressionType = compressionType;
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -39,7 +40,7 @@ namespace BrickVault.Types
         internal static uint CRC_FNV_OFFSET_32 = 2166136261;
         internal static uint CRC_FNV_PRIME_32 = 0x199933;
 
-        protected static uint CalculateCRC32(string path)
+        internal static uint CalculateCRC32(string path)
         {
             uint crc = CRC_FNV_OFFSET_32;
             foreach (char character in StripSlashFromPath(path).ToUpper())
@@ -51,10 +52,42 @@ namespace BrickVault.Types
             return crc;
         }
 
+        internal static long CalculateCRC64(string path)
+        {
+            long crc = CRC_FNV_OFFSET_64;
+            foreach (char character in path)
+            {
+                crc ^= character;
+                crc *= CRC_FNV_PRIME_64;
+            }
+
+            return crc;
+        }
+
+        internal static long CalculateSegmentCRC(string segment, long offset)
+        {
+            if (offset != CRC_FNV_OFFSET_64)
+            {
+                offset ^= '\\';
+                offset *= CRC_FNV_PRIME_64;
+            }
+
+            foreach (char character in segment)
+            {
+                offset ^= character;
+                offset *= CRC_FNV_PRIME_64;
+            }
+
+            return offset;
+        }
+
         public ArchiveFile[] Files { get; set; }
 
+        public FileTree FileTree { get; set; }
 
         public string FileLocation;
+
+        public string FileName;
 
         public uint DecompressedSize { get; internal set; }
 
@@ -64,6 +97,7 @@ namespace BrickVault.Types
         internal DATFile(RawFile file, long trailerOffset, uint trailerSize)
         {
             FileLocation = file.FileLocation;
+            FileName = Path.GetFileNameWithoutExtension(file.FileLocation);
             this.trailerOffset = trailerOffset;
             this.trailerSize = trailerSize;
 
@@ -84,7 +118,7 @@ namespace BrickVault.Types
                     {
                         Console.WriteLine($"Archive Name: {Path.GetFileName(fileLocation)}");
                         Console.WriteLine($"Trailer offset: {lhpOffset}");
-                        Console.WriteLine($"Archive version: LHP");
+                        Console.WriteLine($"Archive version: LHPC");
 
                         return new DAT_v01X(file, lhpOffset, lhpTrailerSize);
                     }
@@ -107,60 +141,63 @@ namespace BrickVault.Types
                 uint trailerSize = file.ReadUInt();
 
                 file.Seek(trailerOffset, SeekOrigin.Begin);
-                int determinant = file.ReadInt();
-
-                int magicBytes1 = file.ReadInt();
-                uint magicBytes2 = file.ReadUInt();
-
-                uint datVersion, fileCount;
-
-                if (determinant < 0 && determinant > -20) // Covers the versions
+                using (RawFile header = file.CreateMemoryFile(trailerSize))
                 {
-                    datVersion = (uint)Math.Abs(determinant);
-                }
-                else
-                {
-                    if (magicBytes2 != 0x3443432e && magicBytes2 != 0x2e434334 && magicBytes1 != 0x3443432e && magicBytes1 != 0x2e434334)
+                    int determinant = header.ReadInt();
+
+                    int magicBytes1 = header.ReadInt();
+                    uint magicBytes2 = header.ReadUInt();
+
+                    uint datVersion, fileCount;
+
+                    if (determinant < 0 && determinant > -20) // Covers the versions
                     {
-                        datVersion = (uint)Math.Abs(magicBytes1);
+                        datVersion = (uint)Math.Abs(determinant);
                     }
                     else
                     {
-                        datVersion = (uint)Math.Abs(file.ReadInt(true));
+                        if (magicBytes2 != 0x3443432e && magicBytes2 != 0x2e434334 && magicBytes1 != 0x3443432e && magicBytes1 != 0x2e434334)
+                        {
+                            datVersion = (uint)Math.Abs(magicBytes1);
+                        }
+                        else
+                        {
+                            datVersion = (uint)Math.Abs(header.ReadInt(true));
+                        }
                     }
-                }
 
-                Console.WriteLine($"Archive Name: {Path.GetFileName(fileLocation)}");
-                Console.WriteLine($"Trailer offset: {trailerOffset}");
-                Console.WriteLine($"Archive version: {datVersion}");
+                    Console.WriteLine($"Archive Name: {Path.GetFileName(fileLocation)}");
+                    Console.WriteLine($"Trailer offset: {trailerOffset}");
+                    Console.WriteLine($"Archive version: {datVersion}");
 
-                DATFile result = null;
+                    DATFile result = null;
 
-                switch (datVersion)
-                {
-                    case 1:
-                        return new DAT_v01(file, trailerOffset, trailerSize);
-                    case 2:
-                    case 3: // LIJ2, 
-                    case 4: // LB2, LHP2, LPOTC, LHP1
-                        return new DAT_v04(file, trailerOffset, trailerSize);
-                    case 5: // LHO, LMSH, LOTR, LCU
-                        return new DAT_v05(file, trailerOffset, trailerSize);
-                    case 6: // LB3
-                        //return new DAT_v06(file, trailerOffset, trailerSize);
-                    case 7: // LDI, LJW
-                        return new DAT_v07(file, trailerOffset, trailerSize);
-                    case 8: // LMA, TFA
-                        return new DAT_v08(file, trailerOffset, trailerSize);
-                    case 11: // Worlds 
-                        return new DAT_v11(file, trailerOffset, trailerSize);
-                    case 12: // LMSH2, LM2VG, LIN, LDCSV, LNI
-                        return new DAT_v12(file, trailerOffset, trailerSize);
-                    case 13: // TSS
-                        return new DAT_v13(file, trailerOffset, trailerSize);
-                    default:
-                        Console.WriteLine($"Unknown DAT version {datVersion}");
-                        return null;
+                    switch (datVersion)
+                    {
+                        case 1:
+                            return new DAT_v01(header, trailerOffset, trailerSize);
+                        case 2:
+                        case 3: // LIJ2, 
+                        case 4: // LB2, LHP2, LPOTC, LHP1
+                            return new DAT_v04(header, trailerOffset, trailerSize);
+                        case 5: // LHO, LMSH, LOTR, LCU
+                            return new DAT_v05(header, trailerOffset, trailerSize);
+                        case 6: // LB3
+                            //return new DAT_v06(file, trailerOffset, trailerSize);
+                        case 7: // LDI, LJW
+                            return new DAT_v07(header, trailerOffset, trailerSize);
+                        case 8: // LMA, TFA
+                            return new DAT_v08(header, trailerOffset, trailerSize);
+                        case 11: // Worlds 
+                            return new DAT_v11(header, trailerOffset, trailerSize);
+                        case 12: // LMSH2, LM2VG, LIN, LDCSV, LNI
+                            return new DAT_v12(header, trailerOffset, trailerSize);
+                        case 13: // TSS
+                            return new DAT_v13(header, trailerOffset, trailerSize);
+                        default:
+                            Console.WriteLine($"Unknown DAT version {datVersion}");
+                            return null;
+                    }
                 }
             }
         }
@@ -272,16 +309,42 @@ namespace BrickVault.Types
             }
         }
 
-        internal byte[] compressedShare = new byte[131072*64];
-        internal byte[] decompressedShare = new byte[524288*64]; // TODO: Write some better constants
+        private static byte[] RentBuffer(uint size)
+        {
+            return ArrayPool<byte>.Shared.Rent((int)size);
+        }
+
+        private static void ReturnBuffer(byte[] array)
+        {
+            ArrayPool<byte>.Shared.Return(array, clearArray: false);
+        }
+
+        private static byte[] SwapBuffer(byte[] original, uint newSize)
+        {
+            ReturnBuffer(original);
+            return RentBuffer(newSize);
+        }
+
+        /// <summary>
+        /// Useful for a one-off extraction.
+        /// Use ExtractFiles() if extracting multiple files for better memory-efficiency
+        /// </summary>
+        /// <param name="extract"></param>
+        /// <param name="datFile"></param>
+        /// <param name="write"></param>
         public virtual void ExtractFile(ArchiveFile extract, RawFile datFile, Stream write)
         {
-            if (compressedShare.Length < extract.CompressedSize)
-                compressedShare = new byte[extract.CompressedSize];
-            if (decompressedShare.Length < extract.DecompressedSize)
-                decompressedShare = new byte[extract.DecompressedSize];
-
-            Extract(extract, write, datFile, compressedShare, decompressedShare);
+            byte[] comp = RentBuffer(extract.CompressedSize);
+            byte[] decomp = RentBuffer(extract.DecompressedSize);
+            try
+            {
+                Extract(extract, write, datFile, comp, decomp);
+            }
+            finally
+            {
+                ReturnBuffer(comp);
+                ReturnBuffer(decomp);
+            }
         }
 
         private string PreparePath(string outputLocation, ArchiveFile file)
@@ -297,21 +360,40 @@ namespace BrickVault.Types
         {
             if (threaded == null)
             {
-                int counter = 0;
-                using (RawFile datFile = new RawFile(FileLocation))
+                uint maxComp = 0, maxDecomp = 0;
+
+                foreach (var f in files) // work out buffer sizes
                 {
-                    foreach (ArchiveFile file in files)
+                    maxComp = Math.Max(maxComp, f.CompressedSize);
+                    maxDecomp = Math.Max(maxDecomp, f.DecompressedSize);
+                }
+
+                byte[] comp = RentBuffer(maxComp);
+                byte[] decomp = RentBuffer(maxDecomp);
+
+                try
+                {
+                    int counter = 0;
+                    using (RawFile datFile = new RawFile(FileLocation))
                     {
-                        counter++;
-                        string path = PreparePath(outputLocation, file);
-
-                        using (FileStream outputFile = File.OpenWrite(path))
+                        foreach (ArchiveFile file in files)
                         {
-                            ExtractFile(file, datFile, outputFile);
-                        }
+                            counter++;
+                            string path = PreparePath(outputLocation, file);
 
-                        Console.WriteLine($"Progress: {counter} / {Files.Length}");
+                            using (FileStream outputFile = File.Create(path))
+                            {
+                                Extract(file, outputFile, datFile, comp, decomp);
+                            }
+
+                            Console.WriteLine($"Progress: {counter} / {files.Length}");
+                        }
                     }
+                }
+                finally
+                {
+                    ReturnBuffer(comp);
+                    ReturnBuffer(decomp);
                 }
             }
             else
@@ -338,36 +420,44 @@ namespace BrickVault.Types
 
         private void ExtractByThread(ArchiveFile[] files, int start, int end, string outputLocation, ThreadedExtractionCtx threaded)
         {
-            byte[] compressedShare = new byte[0x40000*100];
-            byte[] decompressedShare = new byte[524288*100];
+            byte[] comp = RentBuffer(1 << 20);     // 1 MB start
+            byte[] decomp = RentBuffer(4 << 20);   // 4 MB start
 
-            using (RawFile threadView = new RawFile(FileLocation))
+            try
             {
-                for (int i = start; i < end; i++)
+                using (RawFile threadView = new RawFile(FileLocation))
                 {
-                    ArchiveFile file = files[i];
-                
-                    string path = PreparePath(outputLocation, file);
-
-                    if (threaded.Cancel.IsCancellationRequested) return;
-
-                    using (FileStream outputFile = File.OpenWrite(path))
+                    for (int i = start; i < end; i++)
                     {
-                        if (compressedShare.Length < file.CompressedSize)
-                            compressedShare = new byte[file.CompressedSize];
-                        if (decompressedShare.Length < file.DecompressedSize)
-                            decompressedShare = new byte[file.DecompressedSize];
+                        ArchiveFile file = files[i];
+                
+                        string path = PreparePath(outputLocation, file);
 
-                        Extract(file, outputFile, threadView, compressedShare, decompressedShare);
+                        if (threaded.Cancel.IsCancellationRequested) return;
 
-                        if (threaded.DisplayOutput)
+                        using (FileStream outputFile = File.Create(path))
                         {
-                            Console.WriteLine($"Extracted: {file.Path}"); // not safe to output progress/total here as may be multiple DATs being extracted
-                        }
+                            if (comp.Length < file.CompressedSize)
+                                comp = SwapBuffer(comp, file.CompressedSize);
+                            if (decomp.Length < file.DecompressedSize)
+                                decomp = SwapBuffer(decomp, file.DecompressedSize);
 
-                        threaded.Increment();
+                            Extract(file, outputFile, threadView, comp, decomp);
+
+                            if (threaded.DisplayOutput)
+                            {
+                                Console.WriteLine($"Extracted: {file.Path}"); // not safe to output progress/total here as may be multiple DATs being extracted
+                            }
+
+                            threaded.Increment();
+                        }
                     }
                 }
+            }
+            finally
+            {
+                ReturnBuffer(comp);
+                ReturnBuffer(decomp);
             }
         }
         
@@ -375,21 +465,37 @@ namespace BrickVault.Types
         {
             if (threaded == null)
             {
-                using (RawFile datFile = new RawFile(FileLocation))
+                byte[] comp = RentBuffer(8 * 1024 * 1024);   // 8 MB
+                byte[] decomp = RentBuffer(16 * 1024 * 1024); // 16 MB
+
+                try
                 {
-                    for (int i = 0; i < Files.Length; i++)
+                    using (RawFile datFile = new RawFile(FileLocation))
                     {
-                        ArchiveFile file = Files[i];
-
-                        string path = PreparePath(outputLocation, file);
-
-                        using (FileStream outputFile = File.OpenWrite(path))
+                        for (int i = 0; i < Files.Length; i++)
                         {
-                            ExtractFile(file, datFile, outputFile);
-                        }
+                            ArchiveFile file = Files[i];
 
-                        Console.WriteLine($"Extracted {i + 1} / {Files.Length}: {file.Path}");
+                            string path = PreparePath(outputLocation, file);
+
+                            if (comp.Length < file.CompressedSize)
+                                comp = SwapBuffer(comp, file.CompressedSize);
+                            if (decomp.Length < file.DecompressedSize)
+                                decomp = SwapBuffer(decomp, file.DecompressedSize);
+
+                            using (FileStream outputFile = File.Create(path))
+                            {
+                                Extract(file, outputFile, datFile, comp, decomp);
+                            }
+
+                            Console.WriteLine($"Extracted {i + 1} / {Files.Length}: {file.Path}");
+                        }
                     }
+                }
+                finally
+                {
+                    ReturnBuffer(comp);
+                    ReturnBuffer(decomp);
                 }
             }
             else

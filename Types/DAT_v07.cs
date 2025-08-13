@@ -30,12 +30,12 @@ namespace BrickVault.Types
 
         internal override void Read(RawFile file)
         {
-            file.Seek(trailerOffset + 4, SeekOrigin.Begin);
+            file.Seek(4, SeekOrigin.Begin);
 
             uint fileCount = file.ReadUInt();
 
             Files = new ArchiveFile[fileCount];
-
+            
             for (int i = 0; i < fileCount; i++)
             {
                 long fileOffset = file.ReadUInt();

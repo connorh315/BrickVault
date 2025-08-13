@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading;
@@ -9,13 +11,61 @@ using System.Threading.Tasks;
 
 namespace BrickVault.Types
 {
-    internal class FileSegmentStruct // To move to eventually
+    public static class StageTimer
     {
-        public ushort ParentIndex;
-        public short FileIndex;
-        public short FinalChild;
-        public short PreviousSibling;
-        public string CurrentPath;
+        private static readonly Dictionary<string, long> _stageTotals = new();
+        private static Stopwatch _stopwatch = new();
+        private static string _currentStage = null;
+
+        /// <summary>
+        /// Starts timing a stage. Stops timing the previous stage if running.
+        /// </summary>
+        public static void StartStage(string stageName)
+        {
+            StopStage(); // stop previous stage if any
+            _currentStage = stageName;
+            _stopwatch.Restart();
+        }
+
+        /// <summary>
+        /// Stops timing the current stage and accumulates its duration.
+        /// </summary>
+        public static void StopStage()
+        {
+            if (_currentStage != null && _stopwatch.IsRunning)
+            {
+                _stopwatch.Stop();
+
+                if (!_stageTotals.ContainsKey(_currentStage))
+                    _stageTotals[_currentStage] = 0;
+
+                _stageTotals[_currentStage] += _stopwatch.ElapsedTicks;
+
+                _currentStage = null;
+            }
+        }
+
+        /// <summary>
+        /// Prints accumulated times in milliseconds.
+        /// </summary>
+        public static void PrintReport()
+        {
+            Console.WriteLine("Stage Timing Report:");
+            foreach (var kvp in _stageTotals)
+            {
+                double ms = kvp.Value * 1000.0 / Stopwatch.Frequency;
+                Console.WriteLine($"{kvp.Key}: {ms:F3} ms");
+            }
+        }
+
+        /// <summary>
+        /// Clears accumulated times.
+        /// </summary>
+        public static void Reset()
+        {
+            _stageTotals.Clear();
+            _currentStage = null;
+        }
     }
 
     internal class DAT_v11 : DATFile
@@ -29,7 +79,9 @@ namespace BrickVault.Types
 
         internal override void Read(RawFile file)
         {
-            file.Seek(trailerOffset + 16, SeekOrigin.Begin);
+            StageTimer.StartStage("Stage 1");
+
+            file.Seek(16, SeekOrigin.Begin);
 
             uint minorVersion = file.ReadUInt(true);
             uint fileCount = file.ReadUInt(true);
@@ -37,60 +89,60 @@ namespace BrickVault.Types
             uint segmentsCount = file.ReadUInt(true);
             uint segmentsSize = file.ReadUInt(true);
 
-            long segmentsOffset = trailerOffset + 32;
+            long segmentsOffset = 32;
 
-            file.Seek(segmentsOffset + segmentsSize + 4, SeekOrigin.Begin);
+            file.Seek(segmentsOffset + segmentsSize, SeekOrigin.Begin);
 
-            string[] folders = new string[segmentsCount];
-            string[] paths = new string[segmentsCount];
-
-            int nodeId = 0;
+            FileTree = new FileTree(segmentsCount);
+            Files = new NewArchiveFile[fileCount];
+            for (int i = 0; i < fileCount; i++)
+            {
+                Files[i] = new NewArchiveFile();
+            }
 
             for (int i = 0; i < segmentsCount; i++)
             {
+                var node = new FileTreeNode();
+                node.FileTree = FileTree;
+                FileTree.Nodes[i] = node;
+
+                node.FinalChild = file.ReadUShort(true);
+                node.PreviousSibling = file.ReadUShort(true);
+
                 int nameOffset = file.ReadInt(true);
-                ushort folderId = file.ReadUShort(true);
 
-                short orderId = 0;
-                if (minorVersion >= 2)
-                {
-                    orderId = file.ReadShort(true);
-                }
-
-                short unkId = file.ReadShort(true);
-                short fileId = file.ReadShort(true);
+                node.ParentIndex = file.ReadUShort(true);
+                node.FileIndex = file.ReadUShort(true);
 
                 long previousPosition = file.Position;
 
                 if (nameOffset != -1)
                 {
                     file.Seek(segmentsOffset + nameOffset, SeekOrigin.Begin);
-                    string segment = file.ReadNullString();
-                    if (i == segmentsCount - 1)
-                    {
-                        fileId = 1;
-                    }
+                    node.Segment = file.ReadNullString();
+                }
 
-                    string pathName = folders[folderId] + "\\" + segment;
-
-                    if (fileId != 0)
-                    {
-                        paths[nodeId] = pathName;
-                        nodeId++;
-                    }
+                if (node.FinalChild == 0 || node.FileIndex != 0)
+                {
+                    ((NewArchiveFile)Files[node.FileIndex]).Node = node;
+                    node.File = (NewArchiveFile)Files[node.FileIndex];
+                    if (node.Parent == null)
+                        node.PathCRC = CRC_FNV_OFFSET_64;
                     else
-                    {
-                        folders[i] = pathName;
-                    }
+                        node.PathCRC = CalculateSegmentCRC(node.Segment, node.Parent!.PathCRC);
                 }
 
                 file.Seek(previousPosition, SeekOrigin.Begin);
             }
 
+            FileTree.Root = FileTree.Nodes[0];
+
+            file.Seek(4, SeekOrigin.Current); // padding
+
+            StageTimer.StartStage("Stage 2");
+
             file.Seek(4, SeekOrigin.Current); // archive version repeat
             file.Seek(4, SeekOrigin.Current); // file count repeat
-
-            Files = new ArchiveFile[fileCount];
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -112,14 +164,24 @@ namespace BrickVault.Types
                 decompressedSize &= 0x7fffffff;
                 compressionType >>= 31;
 
-                Files[i] = new ArchiveFile
-                {
-                    Offset = fileOffset,
-                    CompressedSize = compressedSize,
-                    DecompressedSize = decompressedSize,
-                    CompressionType = (uint)compressionType
-                };
+                Files[i].SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
             }
+
+            StageTimer.StartStage("Stage 3");
+
+            bool crcsRequired = false;
+            for (int i = 0; i < fileCount; i++)
+            {
+                if (((NewArchiveFile)Files[i]).Node == null)
+                {
+                    crcsRequired = true;
+                    break;
+                }
+            }
+
+            StageTimer.StopStage();
+
+            if (!crcsRequired) return;
 
             long[] crcs = new long[fileCount];
             Dictionary<long, int> crcLookup = new Dictionary<long, int>();
@@ -147,6 +209,8 @@ namespace BrickVault.Types
                 Files[i].Path = overridePath;
             }
 
+            StageTimer.StartStage("Stage 4");
+
             List<uint> collisionCrcs = new();
 
             foreach (var coll in collisionsCaught)
@@ -161,27 +225,29 @@ namespace BrickVault.Types
                 collisionCrcs.Add(crc);
             }
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                string path = paths[i];
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    string path = paths[i];
 
-                uint crc = CRC_FNV_OFFSET_32;
-                foreach (char character in path.Substring(1).ToUpper())
-                {
-                    crc ^= character;
-                    crc *= CRC_FNV_PRIME_32;
-                }
+            //    uint crc = CRC_FNV_OFFSET_32;
+            //    foreach (char character in path.Substring(1).ToUpper())
+            //    {
+            //        crc ^= character;
+            //        crc *= CRC_FNV_PRIME_32;
+            //    }
 
-                if (crcLookup.ContainsKey(crc))
-                {
-                    int index = crcLookup[crc];
-                    Files[index].Path = path;
-                }
-                else if (!collisionsCaught.Contains(path.Substring(1)))
-                {
-                    Console.WriteLine("Could not find CRC for file: {0}", path);
-                }
-            }
+            //    if (crcLookup.ContainsKey(crc))
+            //    {
+            //        int index = crcLookup[crc];
+            //        Files[index].Path = path;
+            //    }
+            //    else if (!collisionsCaught.Contains(path.Substring(1)))
+            //    {
+            //        Console.WriteLine("Could not find CRC for file: {0}", path);
+            //    }
+            //}
+
+            StageTimer.StopStage();
 
             for (int i = 0; i < fileCount; i++)
             {

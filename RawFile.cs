@@ -72,6 +72,29 @@ namespace BrickVault
 
         public long Seek(long offset, SeekOrigin origin) => fileStream.Seek(offset, origin);
 
+        public RawFile CreateMemoryFile(uint size)
+        {
+            var mem = new MemoryStream((int)size); // pre-size for efficiency
+            var buffer = new byte[81920]; // 80 KB buffer, same as CopyTo's default
+            long remaining = size;
+
+            while (remaining > 0)
+            {
+                int toRead = (int)Math.Min(buffer.Length, remaining);
+                int read = fileStream.Read(buffer, 0, toRead);
+                if (read <= 0)
+                    throw new EndOfStreamException("Unexpected end of file.");
+
+                mem.Write(buffer, 0, read);
+                remaining -= read;
+            }
+
+            mem.Position = 0; // rewind for reading
+            var memFile = new RawFile(mem);
+            memFile.FileLocation = FileLocation;
+            return memFile;
+        }
+
         private byte[] ReadBlock(int size, bool bigEndian)
         {
             byte[] data = new byte[size];
@@ -189,18 +212,17 @@ namespace BrickVault
             fileStream.Write(pad, 0, pad.Length);
         }
 
+        private byte[] tempBuffer = new byte[1024]; // reusable buffer
         public string ReadNullString()
         {
-            string combined = "";
-            while (true)
+            int index = 0;
+            int b;
+            while ((b = fileStream.ReadByte()) != -1 && b != 0)
             {
-                byte currByte = (byte)fileStream.ReadByte();
-                if (currByte == 0) break;
-
-                combined += (char)currByte;
+                tempBuffer[index++] = (byte)b;
             }
 
-            return combined;
+            return System.Text.Encoding.ASCII.GetString(tempBuffer, 0, index);
         }
 
 
