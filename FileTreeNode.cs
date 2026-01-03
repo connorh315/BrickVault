@@ -13,14 +13,25 @@ namespace BrickVault
         internal ushort FileIndex;
         internal ushort FinalChild;
         internal ushort PreviousSibling;
-        public string Segment;
         internal long PathCRC;
+
+        private string segment;
+        public string Segment
+        {
+            get => segment;
+            set
+            {
+                segment = value.ToLower();
+            }
+        }
+
+        public string SegmentUpper => Segment.ToUpper();
 
         public FileTree FileTree;
 
         public NewArchiveFile File;
 
-        public FileTreeNode? Parent => (ParentIndex == 0 && Segment == null) ? null : FileTree.Nodes[ParentIndex];
+        public FileTreeNode? Parent => ((ParentIndex == 0 || ParentIndex == 0xffff /* LJW_PC */) && Segment == null) ? null : FileTree.Nodes[ParentIndex];
 
         public bool HasChildren => FinalChild != 0;
 

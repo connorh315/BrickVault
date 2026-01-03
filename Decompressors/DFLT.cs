@@ -440,7 +440,9 @@ namespace BrickVault.Decompressors
             DfltContext ctx = new DfltContext()
             {
                 Input = compressed,
-                Output = decompressed
+                Output = decompressed,
+                InputLength = compressedSize,
+                OutputLength = decompressedSize
             };
 
             return DecompressChunk(ctx);

@@ -40,7 +40,7 @@ namespace BrickVault.Types
         internal static uint CRC_FNV_OFFSET_32 = 2166136261;
         internal static uint CRC_FNV_PRIME_32 = 0x199933;
 
-        internal static uint CalculateCRC32(string path)
+        public static uint CalculateCRC32(string path)
         {
             uint crc = CRC_FNV_OFFSET_32;
             foreach (char character in StripSlashFromPath(path).ToUpper())
@@ -141,6 +141,12 @@ namespace BrickVault.Types
                 uint trailerSize = file.ReadUInt();
 
                 file.Seek(trailerOffset, SeekOrigin.Begin);
+                
+                if (file.fileStream.Length >= 0x100000000)
+                {
+                    file.Seek(0x100000000, SeekOrigin.Current);
+                }
+
                 using (RawFile header = file.CreateMemoryFile(trailerSize))
                 {
                     int determinant = header.ReadInt();

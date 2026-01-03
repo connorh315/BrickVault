@@ -95,13 +95,10 @@ namespace BrickVault.Types
 
             FileTree = new FileTree(segmentsCount);
             Files = new NewArchiveFile[fileCount];
-            for (int i = 0; i < fileCount; i++)
-            {
-                Files[i] = new NewArchiveFile();
-            }
 
             for (int i = 0; i < segmentsCount; i++)
             {
+                var archiveFile = new NewArchiveFile();
                 var node = new FileTreeNode();
                 node.FileTree = FileTree;
                 FileTree.Nodes[i] = node;
@@ -124,8 +121,9 @@ namespace BrickVault.Types
 
                 if (node.FinalChild == 0 || node.FileIndex != 0)
                 {
-                    ((NewArchiveFile)Files[node.FileIndex]).Node = node;
-                    node.File = (NewArchiveFile)Files[node.FileIndex];
+                    archiveFile.Node = node;
+                    node.File = archiveFile;
+                    Files[node.FileIndex] = archiveFile;
                     if (node.Parent == null)
                         node.PathCRC = CRC_FNV_OFFSET_64;
                     else
@@ -260,7 +258,8 @@ namespace BrickVault.Types
 
         private static readonly List<string> ClashableModPaths = new()
         {
-            @"STUFF\TEXT\TEXT.CSV"
+            @"STUFF\TEXT\TEXT.CSV",
+            @"CHARS\COLLECTION.TXT"
         };
 
         static List<PathNode> FlattenedPathNodes;
