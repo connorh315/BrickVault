@@ -75,7 +75,7 @@ namespace BrickVault.Types
                 node.ParentIndex = file.ReadUShort();
                 node.FileIndex = file.ReadUShort(); // Sometimes exists (LDI_WIIU), sometimes doesn't (LJW_PC_GAME0-...)
 
-                if (read < 0 && (read != node.FileIndex))
+                if (node.FileIndex != 0 || node.FinalChild == 0)
                 {
                     node.FileIndex = (ushort)Math.Abs(read);
                 }

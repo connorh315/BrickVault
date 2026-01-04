@@ -31,7 +31,7 @@ namespace BrickVault
 
         public NewArchiveFile File;
 
-        public FileTreeNode? Parent => ((ParentIndex == 0 || ParentIndex == 0xffff /* LJW_PC */) && Segment == null) ? null : FileTree.Nodes[ParentIndex];
+        public FileTreeNode? Parent => ((ParentIndex == 0 || ParentIndex == 0xffff /* LJW_PC */) && string.IsNullOrEmpty(Segment)) ? null : FileTree.Nodes[ParentIndex];
 
         public bool HasChildren => FinalChild != 0;
 

@@ -17,7 +17,7 @@ namespace BrickVault.Types
 
         internal override void Read(RawFile file)
         {
-            file.Seek(trailerOffset + 16, SeekOrigin.Begin);
+            file.Seek(16, SeekOrigin.Begin);
 
             uint minorVersion = file.ReadUInt(true);
             uint fileCount = file.ReadUInt(true);
@@ -25,60 +25,70 @@ namespace BrickVault.Types
             uint segmentsCount = file.ReadUInt(true);
             uint segmentsSize = file.ReadUInt(true);
 
-            long segmentsOffset = trailerOffset + 32;
+            long segmentsOffset = 32;
 
             file.Seek(segmentsOffset + segmentsSize + 4, SeekOrigin.Begin);
 
-            string[] folders = new string[segmentsCount];
-            string[] paths = new string[segmentsCount];
+            file.Seek(segmentsOffset + segmentsSize, SeekOrigin.Begin);
 
-            int nodeId = 0;
+            FileTree = new FileTree(segmentsCount);
+            Files = new NewArchiveFile[fileCount];
 
             for (int i = 0; i < segmentsCount; i++)
             {
+                var archiveFile = new NewArchiveFile();
+                var node = new FileTreeNode();
+                node.FileTree = FileTree;
+                FileTree.Nodes[i] = node;
+
+                short identifier = file.ReadShort(true);
+                //node.FinalChild = file.ReadUShort(true);
+                node.PreviousSibling = file.ReadUShort(true);
+
                 int nameOffset = file.ReadInt(true);
-                ushort folderId = file.ReadUShort(true);
 
-                short orderId = 0;
-                if (minorVersion >= 2)
+                node.ParentIndex = file.ReadUShort(true);
+
+                if (identifier < 0)
                 {
-                    orderId = file.ReadShort(true);
+                    node.FileIndex = (ushort)Math.Abs(identifier);
                 }
-
-                short unkId = file.ReadShort(true);
-                short fileId = file.ReadShort(true);
+                else
+                {
+                    node.FinalChild = (ushort)identifier;
+                }
 
                 long previousPosition = file.Position;
 
                 if (nameOffset != -1)
                 {
                     file.Seek(segmentsOffset + nameOffset, SeekOrigin.Begin);
-                    string segment = file.ReadNullString();
-                    if (i == segmentsCount - 1)
-                    {
-                        fileId = 1;
-                    }
+                    node.Segment = file.ReadNullString();
+                }
 
-                    string pathName = folders[folderId] + "\\" + segment;
-
-                    if (fileId != 0)
-                    {
-                        paths[nodeId] = pathName;
-                        nodeId++;
-                    }
+                if (node.FinalChild == 0 || node.FileIndex != 0)
+                {
+                    archiveFile.Node = node;
+                    node.File = archiveFile;
+                    Files[node.FileIndex] = archiveFile;
+                    if (node.Parent == null)
+                        node.PathCRC = CRC_FNV_OFFSET_64;
                     else
-                    {
-                        folders[i] = pathName;
-                    }
+                        node.PathCRC = CalculateSegmentCRC(node.Segment, node.Parent!.PathCRC);
                 }
 
                 file.Seek(previousPosition, SeekOrigin.Begin);
             }
 
-            file.Seek(4, SeekOrigin.Current); // archive version repeat
-            file.Seek(4, SeekOrigin.Current); // file count repeat
+            FileTree.Root = FileTree.Nodes[0];
 
-            Files = new ArchiveFile[fileCount];
+            file.Seek(4, SeekOrigin.Current); // 0 padding
+            file.Seek(4, SeekOrigin.Current); // archive version
+            file.Seek(4, SeekOrigin.Current); // file count
+
+            Console.WriteLine();
+
+            //Files = new ArchiveFile[fileCount];
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -94,70 +104,123 @@ namespace BrickVault.Types
 
                 compressionType >>= 24;
 
-                Files[i] = new ArchiveFile
-                {
-                    Offset = fileOffset,
-                    CompressedSize = compressedSize,
-                    DecompressedSize = decompressedSize,
-                    CompressionType = (uint)compressionType
-                };
+                Files[i].SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
+
+                //Files[i] = new ArchiveFile
+                //{
+                //    Offset = fileOffset,
+                //    CompressedSize = compressedSize,
+                //    DecompressedSize = decompressedSize,
+                //    CompressionType = (uint)compressionType
+                //};
             }
 
-            long[] crcs = new long[fileCount];
-            Dictionary<long, int> crcLookup = new Dictionary<long, int>();
+            //string[] folders = new string[segmentsCount];
+            //string[] paths = new string[segmentsCount];
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                uint val = file.ReadUInt(true);
-                crcs[i] = val;
-                crcLookup[val] = i;
-            }
+            //int nodeId = 0;
 
-            Dictionary<string, uint> collisions = new();
+            //for (int i = 0; i < segmentsCount; i++)
+            //{
+            //    int nameOffset = file.ReadInt(true);
+            //    ushort folderId = file.ReadUShort(true);
 
-            uint collisionCount = file.ReadUInt(true);
-            file.Seek(4, SeekOrigin.Current); // Size of CRC collision block
+            //    short orderId = 0;
+            //    if (minorVersion >= 2)
+            //    {
+            //        orderId = file.ReadShort(true);
+            //    }
 
-            List<string> collisionsCaught = new();
+            //    short unkId = file.ReadShort(true);
+            //    short fileId = file.ReadShort(true);
 
-            for (int i = 0; i < collisionCount; i++)
-            {
-                string overridePath = file.ReadNullString();
-                collisionsCaught.Add(overridePath);
-                if (overridePath.Length % 2 == 0) file.ReadByte(); // string is aligned to a 2-byte boundary, so the original parser likely read 2-bytes at a time and then checked if either of them were zero, so there's one byte of padding if the string is even-length
-                short id = file.ReadShort(true);
-                Files[i].Path = overridePath;
-            }
+            //    long previousPosition = file.Position;
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                string path = paths[i];
+            //    if (nameOffset != -1)
+            //    {
+            //        file.Seek(segmentsOffset + nameOffset, SeekOrigin.Begin);
+            //        string segment = file.ReadNullString();
+            //        if (i == segmentsCount - 1)
+            //        {
+            //            fileId = 1;
+            //        }
 
-                uint crc = CRC_FNV_OFFSET_32;
-                foreach (char character in path.Substring(1).ToUpper())
-                {
-                    crc ^= character;
-                    crc *= CRC_FNV_PRIME_32;
-                }
+            //        string pathName = folders[folderId] + "\\" + segment;
 
-                if (crcLookup.ContainsKey(crc))
-                {
-                    int index = crcLookup[crc];
-                    Files[index].Path = path;
-                }
-                else if (!collisionsCaught.Contains(path.Substring(1)))
-                {
-                    Console.WriteLine("Could not find CRC for file: {0}", path);
-                }
-            }
+            //        if (fileId != 0)
+            //        {
+            //            paths[nodeId] = pathName;
+            //            nodeId++;
+            //        }
+            //        else
+            //        {
+            //            folders[i] = pathName;
+            //        }
+            //    }
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                if (Files[i].Path == null)
-                {
-                    Console.WriteLine($"Id: {i} empty");
-                }
-            }
+            //    file.Seek(previousPosition, SeekOrigin.Begin);
+            //}
+
+            //file.Seek(4, SeekOrigin.Current); // archive version repeat
+            //file.Seek(4, SeekOrigin.Current); // file count repeat
+
+
+
+            //long[] crcs = new long[fileCount];
+            //Dictionary<long, int> crcLookup = new Dictionary<long, int>();
+
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    uint val = file.ReadUInt(true);
+            //    crcs[i] = val;
+            //    crcLookup[val] = i;
+            //}
+
+            //Dictionary<string, uint> collisions = new();
+
+            //uint collisionCount = file.ReadUInt(true);
+            //file.Seek(4, SeekOrigin.Current); // Size of CRC collision block
+
+            //List<string> collisionsCaught = new();
+
+            //for (int i = 0; i < collisionCount; i++)
+            //{
+            //    string overridePath = file.ReadNullString();
+            //    collisionsCaught.Add(overridePath);
+            //    if (overridePath.Length % 2 == 0) file.ReadByte(); // string is aligned to a 2-byte boundary, so the original parser likely read 2-bytes at a time and then checked if either of them were zero, so there's one byte of padding if the string is even-length
+            //    short id = file.ReadShort(true);
+            //    Files[i].Path = overridePath;
+            //}
+
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    string path = paths[i];
+
+            //    uint crc = CRC_FNV_OFFSET_32;
+            //    foreach (char character in path.Substring(1).ToUpper())
+            //    {
+            //        crc ^= character;
+            //        crc *= CRC_FNV_PRIME_32;
+            //    }
+
+            //    if (crcLookup.ContainsKey(crc))
+            //    {
+            //        int index = crcLookup[crc];
+            //        Files[index].Path = path;
+            //    }
+            //    else if (!collisionsCaught.Contains(path.Substring(1)))
+            //    {
+            //        Console.WriteLine("Could not find CRC for file: {0}", path);
+            //    }
+            //}
+
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    if (Files[i].Path == null)
+            //    {
+            //        Console.WriteLine($"Id: {i} empty");
+            //    }
+            //}
         }
     }
 }
