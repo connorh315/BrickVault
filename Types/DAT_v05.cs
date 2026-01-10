@@ -18,17 +18,6 @@ namespace BrickVault.Types
 
         }
 
-        struct SegmentData
-        {
-            public short previousIndex = 0;
-            public short nextIndex = 0;
-            public string segment = "";
-            public short quickParentIndex;
-            public short fileIndex;
-
-            public SegmentData() { }
-        }
-
         internal override void Read(RawFile file)
         {
             file.Seek(4, SeekOrigin.Begin);
@@ -72,16 +61,19 @@ namespace BrickVault.Types
                 node.FinalChild = (ushort)Math.Max((short)0, read);
                 node.PreviousSibling = file.ReadUShort();
                 int segOffset = file.ReadInt();
-                node.ParentIndex = file.ReadUShort();
-                node.FileIndex = file.ReadUShort(); // Sometimes exists (LDI_WIIU), sometimes doesn't (LJW_PC_GAME0-...)
+                node.ParentIndex = file.ReadUShort(); 
+                node.FileIndex = file.ReadUShort();
 
-                //if ((read < 0) && node.FinalChild == 0)
-                if (node.FileIndex != 0 || node.FinalChild == 0)
-                {
+                if (read <= 0)
+                { // Fix up. Ridiculous file version (read note below)
                     node.FileIndex = (ushort)Math.Abs(read);
                     var archiveFile = ((NewArchiveFile)Files[node.FileIndex]);
                     archiveFile.Node = node;
                     node.File = archiveFile;
+                }
+                else
+                {
+                    node.FileIndex = 0;
                 }
 
 
@@ -96,30 +88,43 @@ namespace BrickVault.Types
                 }
             }
 
-            // For some silly reason, some fields in this version of the archive are left unpopulated. The FileTree system is new, so the old system didn't really care so this was never an issue - Now we do need it.
-            // So at the end of reading in all the values, values such as the ParentIndex are calculated for each node if it didn't already exist (LMSH for example).
-            //Queue<ushort> nodes = new();
-            //nodes.Enqueue(0);
+            canUseQuickLookup = canUseQuickLookup & !nonsenseQuickLookup;
 
-            //while (nodes.Count != 0)
-            //{
-            //    ushort parentIndex = nodes.Dequeue();
-            //    FileTreeNode parent = FileTree.Nodes[parentIndex];
+            string[] constructionPaths = new string[segments.Length];
 
-            //    ushort childIndex = parent.FinalChild;
+            List<string> test = new List<string>();
 
-            //    while (childIndex != 0)
-            //    {
-            //        FileTreeNode child = FileTree.Nodes[childIndex];
-            //        child.ParentIndex = parentIndex;
-            //        nodes.Enqueue(childIndex);
+            string filePath = "";
+            for (int i = 1; i < segments.Length; i++) // i = 0 is just root directory
+            {
+                SegmentData seg = segments[i];
+                if (canUseQuickLookup)
+                {
+                    constructionPaths[i] = constructionPaths[seg.quickParentIndex] + seg.segment + (seg.nextIndex > 0 ? '\\' : "");
 
-            //        childIndex = child.PreviousSibling;
-            //    }
-                
-            //}
+                    if (seg.nextIndex <= 0)
+                    { // Sometimes fileIndex is not populated (i.e. LJW_PC_GAME0) 
+                        Files[Math.Abs(seg.nextIndex)].Path = '\\' + constructionPaths[i];
+                    }
+                }
+                else
+                {
+                    if (seg.previousIndex != 0)
+                    {
+                        filePath = test[seg.previousIndex - 1];
+                    }
 
-            FileTree.Root = FileTree.Nodes[0];
+                    test.Add(filePath);
+
+                    filePath += '\\' + seg.segment;
+
+                    if (seg.nextIndex <= 0)
+                    {
+                        Files[Math.Abs(seg.nextIndex)].Path = filePath;
+                    }
+
+                }
+            }
         }
     }
 }

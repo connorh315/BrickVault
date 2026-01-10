@@ -184,6 +184,7 @@ namespace BrickVault.Types
                             return new DAT_v01(header, trailerOffset, trailerSize);
                         case 2:
                         case 3: // LIJ2, 
+                            return new DAT_v03(header, trailerOffset, trailerSize);
                         case 4: // LB2, LHP2, LPOTC, LHP1
                             return new DAT_v04(header, trailerOffset, trailerSize);
                         case 5: // LHO, LMSH, LOTR, LCU

@@ -9,22 +9,59 @@ using System.Threading.Tasks;
 
 namespace BrickVault.Types
 {
-    internal class DAT_v01 : DATFile
+    internal class DAT_v03 : DATFile
     {
-        public override DATVersion Version => DATVersion.V1;
+        public override DATVersion Version => DATVersion.V3;
 
-        public DAT_v01(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
+        public DAT_v03(RawFile file, long trailerOffset, uint trailerSize) : base(file, trailerOffset, trailerSize)
         {
 
         }
 
-        struct SegmentData
+        private static uint CalculateCRC(FileTreeNode node)
         {
-            public short previousIndex = 0;
-            public short nextIndex = 0;
-            public string segment = "";
+            uint CRC_FNV_OFFSET_32 = 0x811C9DC5;
+            uint CRC_FNV_PRIME_32 = 0x199933;
 
-            public SegmentData() { }
+            uint crc = CRC_FNV_OFFSET_32;
+            foreach (char character in node.Path.ToUpper())
+            {
+                crc ^= character;
+                crc *= CRC_FNV_PRIME_32;
+            }
+
+            return crc;
+        }
+
+        private static int FindCRC(uint[] crcs, uint target)
+        {
+            for (int i = 0; i < crcs.Length; i++)
+            {
+                if (crcs[i] == target) return i;
+            }
+
+            return -1;
+
+            // LB1 doesn't store them in order...
+            //int left = 0;
+            //int right = crcs.Length - 1;
+            //while (left <= right)
+            //{
+            //    int mid = left + (right - left) / 2;
+            //    if (crcs[mid] == target)
+            //    {
+            //        return mid;
+            //    }
+            //    else if (crcs[mid] < target)
+            //    {
+            //        left = mid + 1;
+            //    }
+            //    else
+            //    {
+            //        right = mid - 1;
+            //    }
+            //}
+            //return -1; // Not found
         }
 
         internal override void Read(RawFile file)
@@ -33,7 +70,7 @@ namespace BrickVault.Types
 
             uint fileCount = file.ReadUInt();
 
-            Files = new NewArchiveFile[fileCount];
+            Files = new ArchiveFile[fileCount];
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -46,6 +83,11 @@ namespace BrickVault.Types
 
                 uint compressionType = file.ReadUInt();
 
+                decompressedSize &= 0x7fffffff;
+                fileOffset = (fileOffset << 8) + (compressionType >> 24);
+
+                compressionType &= 0xff;
+
                 archiveFile.SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
 
                 Files[i] = archiveFile;
@@ -55,6 +97,8 @@ namespace BrickVault.Types
 
             FileTree = new FileTree(pathsCount);
             long pathsOffset = file.Position + (pathsCount * 8) + 4; // 12 bytes for each path "entry", +4 for the size of the names block
+
+            Dictionary<uint, FileTreeNode> nodeLookup = new();
 
             for (int i = 0; i < pathsCount; i++)
             {
@@ -68,11 +112,12 @@ namespace BrickVault.Types
                 int segOffset = file.ReadInt();
 
                 if (read <= 0)
-                { // Fix up. Ridiculous file version (read note below)
-                    node.FileIndex = (ushort)Math.Abs(read);
-                    var archiveFile = ((NewArchiveFile)Files[node.FileIndex]);
-                    archiveFile.Node = node;
-                    node.File = archiveFile;
+                {
+                    // TCS just store the order that the files were added to the archive here, rather than the correct index into the file table.
+                    //node.FileIndex = (ushort)(Math.Abs(read));
+                    //var archiveFile = ((NewArchiveFile)Files[node.FileIndex]);
+                    //archiveFile.Node = node;
+                    //node.File = archiveFile;
                 }
                 else
                 {
@@ -88,6 +133,18 @@ namespace BrickVault.Types
                     file.Seek(originalLocation, SeekOrigin.Begin);
                     node.Segment = segmentName;
                 }
+            }
+
+
+
+            file.Seek(pathsOffset - 4, SeekOrigin.Begin);
+            int namesBlockSize = file.ReadInt();
+            file.Seek(namesBlockSize, SeekOrigin.Current);
+
+            uint[] crcs = new uint[fileCount];
+            for (int i = 0; i < fileCount; i++)
+            {
+                crcs[i] = file.ReadUInt();
             }
 
             // Parent Index + File Index not explicitly stored in version < 4. So needs to be calculated.
@@ -109,6 +166,23 @@ namespace BrickVault.Types
                     nodes.Enqueue(childIndex);
 
                     childIndex = child.PreviousSibling;
+                }
+
+                if (parent.FinalChild == 0)
+                { // See note above on TCS.
+                    uint crc = CalculateCRC(parent);
+                    int fileIndex = FindCRC(crcs, crc);
+                    if (fileIndex >= 0)
+                    {
+                        var archiveFile = ((NewArchiveFile)Files[fileIndex]);
+                        archiveFile.Node = parent;
+                        parent.FileIndex = (ushort)fileIndex;
+                        parent.File = archiveFile;
+                    }
+                    else
+                    {
+                        throw new Exception($"Could not find file index {parent.Path} in archive!");
+                    }
                 }
             }
 

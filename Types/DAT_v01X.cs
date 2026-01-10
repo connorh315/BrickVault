@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
@@ -77,6 +78,8 @@ namespace BrickVault.Types
 
             foreach (var list in Directory.EnumerateFiles(searchLocation, "*.list"))
             {
+                if (list.Contains("builds.list")) continue;
+
                 string[] lhp_list = File.ReadAllLines(list);
                 foreach (var path in lhp_list)
                 {
@@ -86,163 +89,14 @@ namespace BrickVault.Types
                 }
             }
 
-            //string[] paths = File.ReadAllLines(@"C:\Users\Connor\Desktop\LHP_PC_GAME.list");
-            //foreach (var path in paths)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string[] paths2 = File.ReadAllLines(@"C:\Users\Connor\Desktop\gamedictionary.txt");
-            //foreach (var path in paths2)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string[] dictionary = File.ReadAllLines(@"C:\Users\Connor\Desktop\dictionary.txt");
-            //foreach (var path in dictionary)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string[] otherdict = File.ReadAllLines(@"C:\Users\Connor\Downloads\hashes2.txt");
-            //foreach (var path in otherdict)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string[] samples = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\AUDIO\LEVELSFX.TXT");
-
-            //foreach (var sample in samples)
-            //{
-            //    if (sample.StartsWith("SAMPLE: "))
-            //    {
-            //        var split = sample.Split(" ");
-
-            //        AddToDictionary(dict2, split[1]);
-            //    }
-            //}
-
-            //string[] opened = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\NUFILESTAT-OPENED.TXT");
-            //foreach (var path in opened)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string[] opened2 = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\TRACKEDFILES.TXT");
-            //foreach (var path in opened2)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string[] opened3 = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\extract\harry1\00004320.fra");
-            //foreach (var path in opened3)
-            //{
-            //    AddToDictionary(dict2, path);
-            //}
-
-            //string prefix = "";
-            //string prefix2 = "";
-            //string[] areas = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\LEVELS\AREAS.TXT");
-            //foreach (var path in areas)
-            //{
-            //    string trim = path.Trim();
-            //    if (trim.StartsWith("dir"))
-            //    {
-            //        var split = trim.Split('"');
-            //        prefix = $"LEVELS\\{split[1]}\\";
-            //    }
-            //    else if (trim.StartsWith("file"))
-            //    {
-            //        var split = trim.Split('"');
-            //        prefix2 = split[1];
-            //    }
-            //    else if (trim.StartsWith("level"))
-            //    {
-            //        var split = trim.Split('"');
-            //        AddToDictionary(dict2, prefix + $"{split[1]}\\{split[1]}.sfx");
-            //        AddToDictionary(dict2, prefix + $"{split[1]}\\{split[1]}.lut.bin");
-            //        AddToDictionary(dict2, prefix + $"legosets.txt");
-            //    }
-            //}
-
-            //string[] levels = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\LEVELS\LEVELS.TXT");
-            //foreach (var path in levels)
-            //{
-            //    string trim = path.Trim();
-            //    if (trim.StartsWith("dir"))
-            //    {
-            //        var split = trim.Split('"');
-            //        prefix = $"LEVELS\\{split[1]}\\";
-            //    }
-            //    else if (trim.StartsWith("file"))
-            //    {
-            //        var split = trim.Split('"');
-            //        prefix2 = split[1];
-            //        AddToDictionary(dict, prefix + $"{split[1]}.sfx");
-            //        AddToDictionary(dict, prefix + $"{split[1]}.lut.bin");
-            //        AddToDictionary(dict, prefix + $"legosets.txt");
-            //    }
-            //}
-
-            //string[] gizcut = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\CUT\GIZCUTSCENES.TXT");
-            //foreach (var path in gizcut)
-            //{
-            //    string trim = path.Trim();
-            //    if (trim.StartsWith("dir"))
-            //    {
-            //        var split = trim.Split('"');
-            //        prefix = $"CUT\\{split[1]}\\";
-            //    }
-            //    else if (trim.StartsWith("file"))
-            //    {
-            //        var split = trim.Split('"');
-            //        prefix2 = split[1];
-            //        AddToDictionary(dict2, prefix + $"{split[1]}.txt");
-            //    }
-            //}
-
-            //string[] audio = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\AUDIO\AUDIO.CFG");
-            //prefix = "";
-            //foreach (var untrimmed in audio)
-            //{
-            //    var line = untrimmed.Trim().Replace(";", "").Trim();
-
-            //    if (line.StartsWith("BASEPATH"))
-            //    {
-            //        prefix = line.Split(" ")[1];
-            //    }
-            //    else if (line.StartsWith("Sample"))
-            //    {
-            //        var split = line.Split("fname ");
-            //        if (split.Length < 2) continue;
-            //        var removeSpeech = split[1].Split('"');
-
-            //        AddToDictionary(dict2, prefix + removeSpeech[1] + ".wav");
-            //    }
-            //}
-
-            //string[] music = File.ReadAllLines(@"C:\Program Files (x86)\Steam\steamapps\common\LHPCR\Years 1-4\AUDIO\MUSIC.CFG");
-            //prefix = "";
-            //foreach (var line in music)
-            //{
-            //    if (line.StartsWith("PATH"))
-            //    {
-            //        prefix = line.Split('"')[1].Substring(1);
-            //    }
-            //    else
-            //    {
-            //        var split = line.Split('"');
-            //        if (split.Length <= 1) continue;
-            //        AddToDictionary(dict2, prefix + split[1] + ".ogg");
-            //    }
-            //}
-
             uint fileCount = file.ReadUInt();
 
-            Files = new ArchiveFile[fileCount];
+            Files = new NewArchiveFile[fileCount];
 
             for (int i = 0; i < fileCount; i++)
             {
+                var archiveFile = new NewArchiveFile();
+
                 long fileOffset = file.ReadLong();
 
                 file.Seek(4, SeekOrigin.Current); // 0x12345678
@@ -252,19 +106,18 @@ namespace BrickVault.Types
 
                 uint compressionType = file.ReadUInt();
 
-                Files[i] = new ArchiveFile
-                {
-                    Offset = fileOffset,
-                    CompressedSize = compressedSize,
-                    DecompressedSize = decompressedSize,
-                    CompressionType = (uint)compressionType,
-                    Path = $"\\{i}.unk"
-                };
+                archiveFile.SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
+
+                Files[i] = archiveFile;
             }
 
             int accounted = 0;
 
-            List<(uint, string)> structure = new();
+            FileTree = new FileTree(ushort.MaxValue); // remind me to think of something better than this at some point.
+
+            FileTreeNode root = new FileTreeNode();
+            root.FileTree = FileTree;
+            FileTree.Nodes[0] = root;
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -272,27 +125,71 @@ namespace BrickVault.Types
 
                 if (dict.ContainsKey(crc))
                 {
+                    FileTreeNode fileNode = BuildPathNodes(FileTree, dict[crc]);
+
+                    fileNode.File = (NewArchiveFile)Files[i];
+                    fileNode.File.Node = fileNode;
+
+
                     //Console.WriteLine($"Valid file: {dict[crc]}");
-                    Files[i].Path = "\\" + dict[crc].ToLower();
-                    structure.Add((crc, dict[crc].ToLower()));
-                    dict.Remove(crc);
+                    //Files[i].Path = "\\" + dict[crc].ToLower();
+                    //structure.Add((crc, dict[crc].ToLower()));
+                    //dict.Remove(crc);
                     accounted++;
                 }
                 else if (dict2.ContainsKey(crc))
                 {
-                    Console.WriteLine($"Valid file: {dict2[crc]}");
-                    Files[i].Path = "\\" + dict2[crc].ToLower();
-                    structure.Add((crc, dict2[crc].ToLower()));
-                    dict2.Remove(crc);
+                    //Console.WriteLine($"Valid file: {dict2[crc]}");
+                    //Files[i].Path = "\\" + dict2[crc].ToLower();
+                    //structure.Add((crc, dict2[crc].ToLower()));
+                    //dict2.Remove(crc);
                     accounted++;
                 }
                 else
                 {
-                    structure.Add((crc, ""));
-                    Files[i].Path = $"\\unknown\\{crc:x8}.unk";
+                    FileTreeNode fileNode = BuildPathNodes(FileTree, $"\\unknown\\{crc:x8}.unk");
+                    fileNode.File = (NewArchiveFile)Files[i];
+                    fileNode.File.Node = fileNode;
+                    //Files[i].Path = ;
                 }
             }
             Console.WriteLine($"Accounted for {accounted} / {fileCount}"); // 3907, 3931, 4052
+        }
+
+        private ushort nextNodePointer = 1;
+
+        private FileTreeNode BuildPathNodes(FileTree fileTree, string path)
+        {
+            string[] segments = path.Split('\\');
+            ushort parentIndex = 0;
+            for (int i = 0; i < segments.Length; i++)
+            {
+                FileTreeNode parent = fileTree.Nodes[parentIndex];
+
+                string segment = segments[i];
+                if (segment.Length == 0) continue;
+
+                ushort childIndex = parent.HasChild(segment);
+
+                if (childIndex == 0)
+                {
+                    FileTreeNode node = new FileTreeNode();
+                    node.FileTree = fileTree;
+                    node.Segment = segment;
+                    node.ParentIndex = parentIndex;
+
+                    fileTree.Nodes[nextNodePointer] = node;
+                    childIndex = nextNodePointer++;
+
+                    ushort parentFinalChild = parent.FinalChild;
+                    parent.FinalChild = childIndex;
+                    node.PreviousSibling = parentFinalChild;
+                }
+
+                parentIndex = childIndex;
+            }
+
+            return fileTree.Nodes[parentIndex];
         }
     }
 }

@@ -11,7 +11,7 @@
 
         internal override void Read(RawFile file)
         {
-            file.Seek(trailerOffset + 16, SeekOrigin.Begin);
+            file.Seek(16, SeekOrigin.Begin);
 
             uint minorVersion = file.ReadUInt(true);
             uint fileCount = file.ReadUInt(true);
@@ -19,60 +19,55 @@
             uint segmentsCount = file.ReadUInt(true);
             uint segmentsSize = file.ReadUInt(true);
 
-            long segmentsOffset = trailerOffset + 32;
+            long segmentsOffset = 32;
 
-            file.Seek(segmentsOffset + segmentsSize + 4, SeekOrigin.Begin);
+            file.Seek(segmentsOffset + segmentsSize, SeekOrigin.Begin);
 
-            string[] folders = new string[segmentsCount];
-            string[] paths = new string[fileCount];
-
-            int nodeId = 0;
+            FileTree = new FileTree(segmentsCount);
+            Files = new NewArchiveFile[fileCount];
 
             for (int i = 0; i < segmentsCount; i++)
             {
+                var archiveFile = new NewArchiveFile();
+                var node = new FileTreeNode();
+                node.FileTree = FileTree;
+                FileTree.Nodes[i] = node;
+
+                node.FinalChild = file.ReadUShort(true);
+                node.PreviousSibling = file.ReadUShort(true);
+
                 int nameOffset = file.ReadInt(true);
-                ushort folderId = file.ReadUShort(true);
 
-                ushort orderId = 0;
-                if (minorVersion >= 2)
-                {
-                    orderId = file.ReadUShort(true);
-                }
-
-                short someId = file.ReadShort(true);
-                short fileId = file.ReadShort(true);
+                node.ParentIndex = file.ReadUShort(true);
+                node.FileIndex = file.ReadUShort(true);
 
                 long previousPosition = file.Position;
 
                 if (nameOffset != -1)
                 {
                     file.Seek(segmentsOffset + nameOffset, SeekOrigin.Begin);
-                    string segment = file.ReadNullString();
-                    if (i == segmentsCount - 1)
-                    {
-                        fileId = 1;
-                    }
+                    node.Segment = file.ReadNullString();
+                }
 
-                    string pathName = folders[folderId] + "\\" + segment;
-
-                    if (fileId != 0)
-                    {
-                        paths[orderId] = pathName;
-                        nodeId++;
-                    }
-                    else
-                    {
-                        folders[i] = pathName;
-                    }
+                if (node.FinalChild == 0 || node.FileIndex != 0)
+                {
+                    archiveFile.Node = node;
+                    node.File = archiveFile;
+                    Files[node.FileIndex] = archiveFile;
+                    //if (node.Parent == null)
+                    //    node.PathCRC = CRC_FNV_OFFSET_64;
+                    //else
+                    //    node.PathCRC = CalculateSegmentCRC(node.Segment, node.Parent!.PathCRC);
                 }
 
                 file.Seek(previousPosition, SeekOrigin.Begin);
             }
 
+            FileTree.Root = FileTree.Nodes[0];
+
+            file.Seek(4, SeekOrigin.Current); // padding
             file.Seek(4, SeekOrigin.Current); // archive version repeat
             file.Seek(4, SeekOrigin.Current); // file count repeat
-
-            Files = new ArchiveFile[fileCount];
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -94,14 +89,7 @@
                 compressionType >>= 56;
                 fileOffset &= 0xffffffffffffff;
 
-                Files[i] = new ArchiveFile
-                {
-                    Offset = fileOffset,
-                    CompressedSize = compressedSize,
-                    DecompressedSize = decompressedSize,
-                    CompressionType = (uint)compressionType,
-                    Path = paths[i]
-                };
+                Files[i].SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
             }
 
             //long[] crcs = new long[fileCount];

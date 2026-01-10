@@ -18,18 +18,9 @@ namespace BrickVault.Types
 
         }
 
-        struct SegmentData
-        {
-            public short previousIndex = 0;
-            public short nextIndex = 0;
-            public string segment = "";
-
-            public SegmentData() { }
-        }
-
         internal override void Read(RawFile file)
         {
-            file.Seek(trailerOffset + 4, SeekOrigin.Begin);
+            file.Seek(4, SeekOrigin.Begin);
 
             uint fileCount = file.ReadUInt();
 
@@ -37,6 +28,8 @@ namespace BrickVault.Types
 
             for (int i = 0; i < fileCount; i++)
             {
+                var archiveFile = new NewArchiveFile();
+
                 long fileOffset = file.ReadUInt();
 
                 uint compressedSize = file.ReadUInt();
@@ -49,68 +42,73 @@ namespace BrickVault.Types
 
                 compressionType &= 0xff;
 
-                Files[i] = new ArchiveFile
-                {
-                    Offset = fileOffset,
-                    CompressedSize = compressedSize,
-                    DecompressedSize = decompressedSize,
-                    CompressionType = (uint)compressionType
-                };
+                archiveFile.SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
+
+                Files[i] = archiveFile;
             }
 
             uint pathsCount = file.ReadUInt();
 
-            SegmentData[] segments = new SegmentData[pathsCount];
-
-            long pathsOffset = file.Position + (pathsCount * 8) + 4; // 8 bytes for each path "entry", +4 for the size of the names block
+            FileTree = new FileTree(pathsCount);
+            long pathsOffset = file.Position + (pathsCount * 8) + 4; // 12 bytes for each path "entry", +4 for the size of the names block
 
             for (int i = 0; i < pathsCount; i++)
             {
-                short next = file.ReadShort(); // This actually represents one of two things, if +ve then it is not a complete path and the value is the next segment, if -ve then the unsigned value represents the fileIndex, useful when the actual fileIndex has not been populated.
-                short prev = file.ReadShort();
+                var node = new FileTreeNode();
+                node.FileTree = FileTree;
+                FileTree.Nodes[i] = node;
+
+                short read = file.ReadShort(); // This actually represents one of two things, if +ve then it is not a complete path and the value is the next segment, if -ve then the unsigned value represents the fileIndex, useful when the actual fileIndex has not been populated.
+                node.FinalChild = (ushort)Math.Max((short)0, read);
+                node.PreviousSibling = file.ReadUShort();
                 int segOffset = file.ReadInt();
 
+                if (read <= 0)
+                {
+                    node.FileIndex = (ushort)(Math.Abs(read));
+                    var archiveFile = ((NewArchiveFile)Files[node.FileIndex]);
+                    archiveFile.Node = node;
+                    node.File = archiveFile;
+                }
+                else
+                {
+                    node.FileIndex = 0;
+                }
 
                 string segmentName = "";
                 if (segOffset >= 0)
                 {
                     long originalLocation = file.Position;
                     file.Seek(pathsOffset + segOffset, SeekOrigin.Begin);
-                    segmentName = file.ReadNullString().ToLower(); // LSW: TCS (PC)
+                    segmentName = file.ReadNullString();
                     file.Seek(originalLocation, SeekOrigin.Begin);
+                    node.Segment = segmentName;
                 }
-
-                segments[i] = new SegmentData
-                {
-                    nextIndex = next,
-                    previousIndex = prev,
-                    segment = segmentName,
-                };
             }
 
-            string[] constructionPaths = new string[segments.Length];
+            // Parent Index + File Index not explicitly stored in version < 4. So needs to be calculated.
+            Queue<ushort> nodes = new();
+            nodes.Enqueue(0);
 
-            List<string> test = new List<string>();
 
-            string filePath = "";
-            for (int i = 1; i < segments.Length; i++) // i = 0 is just root directory
+            while (nodes.Count != 0)
             {
-                SegmentData seg = segments[i];
+                ushort parentIndex = nodes.Dequeue();
+                FileTreeNode parent = FileTree.Nodes[parentIndex];
 
-                if (seg.previousIndex != 0)
+                ushort childIndex = parent.FinalChild;
+
+                while (childIndex != 0)
                 {
-                    filePath = test[seg.previousIndex - 1];
-                }
+                    FileTreeNode child = FileTree.Nodes[childIndex];
+                    child.ParentIndex = parentIndex;
+                    nodes.Enqueue(childIndex);
 
-                test.Add(filePath);
-
-                filePath += '\\' + seg.segment;
-
-                if (seg.nextIndex <= 0)
-                {
-                    Files[Math.Abs(seg.nextIndex)].Path = filePath;
+                    childIndex = child.PreviousSibling;
                 }
             }
+
+            FileTree.Root = FileTree.Nodes[0];
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿# BrickVault 1.0.0
+﻿# BrickVault 1.2.0
 <p align="center">
 	<img src="Images/brickvaultico.png" width="250">
 </p>
