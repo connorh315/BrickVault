@@ -61,7 +61,7 @@ namespace BrickVault.Types
                 node.FinalChild = (ushort)Math.Max((short)0, read);
                 node.PreviousSibling = file.ReadUShort();
                 int segOffset = file.ReadInt();
-                node.ParentIndex = file.ReadUShort(); 
+                node.ParentIndex = file.ReadUShort();
                 node.FileIndex = file.ReadUShort();
 
                 if (read <= 0)
@@ -76,7 +76,6 @@ namespace BrickVault.Types
                     node.FileIndex = 0;
                 }
 
-
                 string segmentName = "";
                 if (segOffset >= 0)
                 {
@@ -88,43 +87,31 @@ namespace BrickVault.Types
                 }
             }
 
-            canUseQuickLookup = canUseQuickLookup & !nonsenseQuickLookup;
+            // The values (ParentIndex and FileIndex) in LHO are perfect, for LMSH they are missing the parent index, for everything else (LCU, LOTR) they are absolute nonsense. So we'll recalculate them all the time to be safe.
+            FileTree.Nodes[0].ParentIndex = 0;
 
-            string[] constructionPaths = new string[segments.Length];
+            Queue<ushort> nodes = new();
+            nodes.Enqueue(0);
 
-            List<string> test = new List<string>();
 
-            string filePath = "";
-            for (int i = 1; i < segments.Length; i++) // i = 0 is just root directory
+            while (nodes.Count != 0)
             {
-                SegmentData seg = segments[i];
-                if (canUseQuickLookup)
+                ushort parentIndex = nodes.Dequeue();
+                FileTreeNode parent = FileTree.Nodes[parentIndex];
+
+                ushort childIndex = parent.FinalChild;
+
+                while (childIndex != 0)
                 {
-                    constructionPaths[i] = constructionPaths[seg.quickParentIndex] + seg.segment + (seg.nextIndex > 0 ? '\\' : "");
+                    FileTreeNode child = FileTree.Nodes[childIndex];
+                    child.ParentIndex = parentIndex;
+                    nodes.Enqueue(childIndex);
 
-                    if (seg.nextIndex <= 0)
-                    { // Sometimes fileIndex is not populated (i.e. LJW_PC_GAME0) 
-                        Files[Math.Abs(seg.nextIndex)].Path = '\\' + constructionPaths[i];
-                    }
-                }
-                else
-                {
-                    if (seg.previousIndex != 0)
-                    {
-                        filePath = test[seg.previousIndex - 1];
-                    }
-
-                    test.Add(filePath);
-
-                    filePath += '\\' + seg.segment;
-
-                    if (seg.nextIndex <= 0)
-                    {
-                        Files[Math.Abs(seg.nextIndex)].Path = filePath;
-                    }
-
+                    childIndex = child.PreviousSibling;
                 }
             }
+
+            FileTree.Root = FileTree.Nodes[0];
         }
     }
 }

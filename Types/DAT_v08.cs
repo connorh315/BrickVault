@@ -47,14 +47,28 @@ namespace BrickVault.Types
 
                 int nameOffset = file.ReadInt(true);
 
-                short orderId = 0;
+                node.ParentIndex = file.ReadUShort(true);
                 if (minorVersion >= 2)
                 {
-                    orderId = file.ReadShort(true);
+                    node.FileIndex = file.ReadUShort(true);
+                    if (identifier >= 0)
+                    {
+                        node.FinalChild = (ushort)identifier;
+                    }
+                    //Console.WriteLine($"{identifier} - {node.PreviousSibling} - {nameOffset} - {node.ParentIndex} - {node.FileIndex}");
+                }
+                else
+                {
+                    if (identifier < 0)
+                    {
+                        node.FileIndex = (ushort)Math.Abs(identifier);
+                    }
+                    else
+                    {
+                        node.FinalChild = (ushort)identifier;
+                    }
                 }
 
-                short unkId = file.ReadShort(true);
-                short fileId = file.ReadShort(true);
 
                 long previousPosition = file.Position;
 
@@ -78,10 +92,13 @@ namespace BrickVault.Types
                 file.Seek(previousPosition, SeekOrigin.Begin);
             }
 
-            file.Seek(4, SeekOrigin.Current); // archive version repeat
-            file.Seek(4, SeekOrigin.Current); // file count repeat
+            FileTree.Root = FileTree.Nodes[0];
 
-            Files = new ArchiveFile[fileCount];
+            file.Seek(4, SeekOrigin.Current); // 0 padding
+            file.Seek(4, SeekOrigin.Current); // archive version
+            file.Seek(4, SeekOrigin.Current); // file count
+
+            Console.WriteLine();
 
             //Files = new ArchiveFile[fileCount];
 
@@ -110,31 +127,82 @@ namespace BrickVault.Types
                 //};
             }
 
-            long[] crcs = new long[fileCount];
-            Dictionary<long, int> crcLookup = new Dictionary<long, int>();
+            //string[] folders = new string[segmentsCount];
+            //string[] paths = new string[segmentsCount];
 
-            for (int i = 0; i < fileCount; i++)
-            {
-                uint val = file.ReadUInt(true);
-                crcs[i] = val;
-                crcLookup[val] = i;
-            }
+            //int nodeId = 0;
 
-            Dictionary<string, uint> collisions = new();
+            //for (int i = 0; i < segmentsCount; i++)
+            //{
+            //    int nameOffset = file.ReadInt(true);
+            //    ushort folderId = file.ReadUShort(true);
 
-            uint collisionCount = file.ReadUInt(true);
-            file.Seek(4, SeekOrigin.Current); // Size of CRC collision block
+            //    short orderId = 0;
+            //    if (minorVersion >= 2)
+            //    {
+            //        orderId = file.ReadShort(true);
+            //    }
 
-            List<string> collisionsCaught = new();
+            //    short unkId = file.ReadShort(true);
+            //    short fileId = file.ReadShort(true);
 
-            for (int i = 0; i < collisionCount; i++)
-            {
-                string overridePath = file.ReadNullString();
-                collisionsCaught.Add(overridePath);
-                if (overridePath.Length % 2 == 0) file.ReadByte(); // string is aligned to a 2-byte boundary, so the original parser likely read 2-bytes at a time and then checked if either of them were zero, so there's one byte of padding if the string is even-length
-                short id = file.ReadShort(true);
-                Files[i].Path = overridePath;
-            }
+            //    long previousPosition = file.Position;
+
+            //    if (nameOffset != -1)
+            //    {
+            //        file.Seek(segmentsOffset + nameOffset, SeekOrigin.Begin);
+            //        string segment = file.ReadNullString();
+            //        if (i == segmentsCount - 1)
+            //        {
+            //            fileId = 1;
+            //        }
+
+            //        string pathName = folders[folderId] + "\\" + segment;
+
+            //        if (fileId != 0)
+            //        {
+            //            paths[nodeId] = pathName;
+            //            nodeId++;
+            //        }
+            //        else
+            //        {
+            //            folders[i] = pathName;
+            //        }
+            //    }
+
+            //    file.Seek(previousPosition, SeekOrigin.Begin);
+            //}
+
+            //file.Seek(4, SeekOrigin.Current); // archive version repeat
+            //file.Seek(4, SeekOrigin.Current); // file count repeat
+
+
+
+            //long[] crcs = new long[fileCount];
+            //Dictionary<long, int> crcLookup = new Dictionary<long, int>();
+
+            //for (int i = 0; i < fileCount; i++)
+            //{
+            //    uint val = file.ReadUInt(true);
+            //    crcs[i] = val;
+            //    crcLookup[val] = i;
+            //}
+
+            //Dictionary<string, uint> collisions = new();
+
+            //uint collisionCount = file.ReadUInt(true);
+            //file.Seek(4, SeekOrigin.Current); // Size of CRC collision block
+
+            //List<string> collisionsCaught = new();
+
+            //for (int i = 0; i < collisionCount; i++)
+            //{
+            //    string overridePath = file.ReadNullString();
+            //    collisionsCaught.Add(overridePath);
+            //    if (overridePath.Length % 2 == 0) file.ReadByte(); // string is aligned to a 2-byte boundary, so the original parser likely read 2-bytes at a time and then checked if either of them were zero, so there's one byte of padding if the string is even-length
+            //    short id = file.ReadShort(true);
+            //    Files[i].Path = overridePath;
+            //}
 
             //for (int i = 0; i < fileCount; i++)
             //{
