@@ -365,6 +365,11 @@ namespace BrickVault.Types
 
         public virtual void ExtractFiles(ArchiveFile[] files, string outputLocation, ThreadedExtractionCtx? threaded = null)
         {
+            if (string.IsNullOrEmpty(outputLocation) && !string.IsNullOrEmpty(FileLocation))
+            {
+                outputLocation = Path.GetDirectoryName(FileLocation);
+            }
+
             if (threaded == null)
             {
                 uint maxComp = 0, maxDecomp = 0;
