@@ -227,7 +227,7 @@ namespace BrickVault.Types
 
         internal abstract void Read(RawFile file);
 
-        internal void Extract(ArchiveFile extract, Stream write, RawFile file, byte[] compressedShare, byte[] decompressedShare)
+        public void Extract(ArchiveFile extract, Stream write, RawFile file, byte[] compressedShare, byte[] decompressedShare)
         {
             file.Seek(extract.Offset, SeekOrigin.Begin);
 
@@ -352,6 +352,22 @@ namespace BrickVault.Types
                 ReturnBuffer(comp);
                 ReturnBuffer(decomp);
             }
+            write.Position = 0;
+        }
+
+        /// <summary>
+        /// Opens the DAT file, creates the stream 
+        /// </summary>
+        /// <param name="extract"></param>
+        /// <returns></returns>
+        public virtual Stream Extract(ArchiveFile extract)
+        {
+            Stream stream = new MemoryStream();
+            using (RawFile datFile = new RawFile(FileLocation))
+            {
+                ExtractFile(extract, datFile, stream);
+            }
+            return stream;
         }
 
         private string PreparePath(string outputLocation, ArchiveFile file)

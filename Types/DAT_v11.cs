@@ -79,8 +79,6 @@ namespace BrickVault.Types
 
         internal override void Read(RawFile file)
         {
-            StageTimer.StartStage("Stage 1");
-
             file.Seek(16, SeekOrigin.Begin);
 
             uint minorVersion = file.ReadUInt(true);
@@ -137,8 +135,6 @@ namespace BrickVault.Types
 
             file.Seek(4, SeekOrigin.Current); // padding
 
-            StageTimer.StartStage("Stage 2");
-
             file.Seek(4, SeekOrigin.Current); // archive version repeat
             file.Seek(4, SeekOrigin.Current); // file count repeat
 
@@ -165,8 +161,6 @@ namespace BrickVault.Types
                 Files[i].SetFileData(fileOffset, compressedSize, decompressedSize, (byte)compressionType);
             }
 
-            StageTimer.StartStage("Stage 3");
-
             bool crcsRequired = false;
             for (int i = 0; i < fileCount; i++)
             {
@@ -176,8 +170,6 @@ namespace BrickVault.Types
                     break;
                 }
             }
-
-            StageTimer.StopStage();
 
             if (!crcsRequired) return;
 
@@ -206,8 +198,6 @@ namespace BrickVault.Types
                 short id = file.ReadShort(true);
                 Files[i].Path = overridePath;
             }
-
-            StageTimer.StartStage("Stage 4");
 
             List<uint> collisionCrcs = new();
 
@@ -244,8 +234,6 @@ namespace BrickVault.Types
             //        Console.WriteLine("Could not find CRC for file: {0}", path);
             //    }
             //}
-
-            StageTimer.StopStage();
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -355,7 +343,7 @@ namespace BrickVault.Types
 
             for (ushort i = 0; i < archiveFiles.Length; i++)
             {
-                string[] split = archiveFiles[i].Path.Split('\\');
+                string[] split = archiveFiles[i].Path.Substring(1).Split('\\');
 
                 PathNode prev = root;
                 foreach (string segment in split)
@@ -376,7 +364,7 @@ namespace BrickVault.Types
             FlattenedPathNodes = new() { root };
             Flatten(root);
 
-            string hdrFileLocation = settings.OutputFileLocation.Replace(".DAT", ".HDR");
+            string hdrFileLocation = settings.OutputFileLocation.Replace(".DAT", ".HDR", true, null);
 
             using (RawFile hdrFile = RawFile.Create(hdrFileLocation))
             {
