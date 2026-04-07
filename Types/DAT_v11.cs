@@ -291,6 +291,8 @@ namespace BrickVault.Types
             progress.Current = 0;
             progress.Total = importFiles.Count;
 
+            int clashCount = 0;
+
             ArchivePackFile[] archiveFiles = new ArchivePackFile[importFiles.Count];
             for (int i = 0; i < importFiles.Count; i++)
             {
@@ -312,11 +314,14 @@ namespace BrickVault.Types
                     toImport.fileStream.CopyTo(datFile.fileStream);
                 }
 
-                string reducedPath = importFile.Replace(settings.InputFolderLocation, "").ToUpper().Replace('/', '\\');
+                string reducedPath = importFile.Replace(settings.InputFolderLocation, "").ToUpper().Replace('/', '\\').TrimStart('\\');
 
                 uint crc = CalculateCRC32(reducedPath);
                 if (ClashableModPaths.Contains(reducedPath) && settings.IsMod) // Ensures that the file can be layered by the mod loader
+                {
                     crc = 0;
+                    clashCount++;
+                }
 
                 ArchivePackFile archiveFile = new ArchivePackFile()
                 {
@@ -343,7 +348,7 @@ namespace BrickVault.Types
 
             for (ushort i = 0; i < archiveFiles.Length; i++)
             {
-                string[] split = archiveFiles[i].Path.Substring(1).Split('\\');
+                string[] split = archiveFiles[i].Path.Split('\\');
 
                 PathNode prev = root;
                 foreach (string segment in split)
@@ -433,15 +438,18 @@ namespace BrickVault.Types
                     hdrFile.WriteUInt(file.CRC, true);
                 }
 
-                hdrFile.WriteInt(ClashableModPaths.Count, true);
+                hdrFile.WriteInt(clashCount, true);
 
                 long clashLength = hdrFile.Position;
                 hdrFile.WritePadding(4);
 
                 ushort clashIndex = 0;
-                foreach (var path in ClashableModPaths)
+                for (int i = 0; i < clashCount; i++)
                 {
-                    hdrFile.WriteString(path.ToLower(), path.Length % 2 == 0 ? 2 : 1);
+                    var file = archiveFiles[i];
+                    if (file.CRC != 0) break;
+                    string path = file.Path.ToLower();
+                    hdrFile.WriteString(path, path.Length % 2 == 0 ? 2 : 1);
                     hdrFile.WriteUShort(clashIndex++, true);
                 }
 
