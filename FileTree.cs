@@ -13,8 +13,6 @@ namespace BrickVault
 
         public FileTreeNode Root { get; set; }
 
-        Dictionary<uint, FileTreeNode> pathToNode;
-
         public FileTree(uint nodeCount)
         {
             Nodes = new FileTreeNode[nodeCount];
@@ -56,13 +54,42 @@ namespace BrickVault
             }
         }
 
+        public FileTreeNode GetNode(string path)
+        {
+            string[] segments = path.Split('\\');
+
+            FileTreeNode parent = Root;
+
+            for (int i = 0; i < segments.Length; i++)
+            {
+                var seg = segments[i];
+
+                ushort child = parent.HasChild(seg);
+
+                if (child == 0) return null;
+
+                parent = Nodes[child];
+            }
+
+            return parent;
+        }
+
         public NewArchiveFile GetFile(string path)
         {
-            long pathCrc = DATFile.CalculateCRC64(path);
+            var node = GetNode(path);
+            return node?.File;
+        }
 
-            pathToNode.TryGetValue((uint)pathCrc, out FileTreeNode? node);
+        public IEnumerable<NewArchiveFile> EnumerateFilesRecursive(FileTreeNode node)
+        {
+            if (node.File != null)
+                yield return node.File;
 
-            return node.File;
+            foreach (var child in EnumerateChildren(node))
+            {
+                foreach (var f in EnumerateFilesRecursive(child))
+                    yield return f;
+            }
         }
     }
 }

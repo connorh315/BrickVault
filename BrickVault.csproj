@@ -8,4 +8,21 @@
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>DEBUG;TRACE;LOG_INFO</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DefineConstants>TRACE;LOG_INFO</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Lib'">
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <Target Name="BuildBoth" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <MSBuild Projects="$(MSBuildProjectFile)"
+             Targets="Build"
+             Properties="Configuration=Lib" />
+  </Target>
 </Project>

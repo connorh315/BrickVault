@@ -13,6 +13,9 @@ public class ThreadedExtractionCtx
 
     public event ProgressUpdate OnProgressChange;
 
+    public string NavigateLocation;
+    public bool ShouldSelect = false;
+
     public void Increment()
     {
         Interlocked.Increment(ref Extracted);

@@ -116,9 +116,9 @@ namespace BrickVault.Types
                     file.Seek(lhpOffset, SeekOrigin.Begin);
                     if (file.ReadInt() == -1)
                     {
-                        Console.WriteLine($"Archive Name: {Path.GetFileName(fileLocation)}");
-                        Console.WriteLine($"Trailer offset: {lhpOffset}");
-                        Console.WriteLine($"Archive version: LHPC");
+                        Log.Info($"Archive Name: {Path.GetFileName(fileLocation)}");
+                        Log.Info($"Trailer offset: {lhpOffset}");
+                        Log.Info($"Archive version: LHPC");
 
                         return new DAT_v01X(file, lhpOffset, lhpTrailerSize);
                     }
@@ -172,9 +172,9 @@ namespace BrickVault.Types
                         }
                     }
 
-                    Console.WriteLine($"Archive Name: {Path.GetFileName(fileLocation)}");
-                    Console.WriteLine($"Trailer offset: {trailerOffset}");
-                    Console.WriteLine($"Archive version: {datVersion}");
+                    Log.Info($"Archive Name: {Path.GetFileName(fileLocation)}");
+                    Log.Info($"Trailer offset: {trailerOffset}");
+                    Log.Info($"Archive version: {datVersion}");
 
                     DATFile result = null;
 
@@ -202,7 +202,7 @@ namespace BrickVault.Types
                         case 13: // TSS
                             return new DAT_v13(header, trailerOffset, trailerSize);
                         default:
-                            Console.WriteLine($"Unknown DAT version {datVersion}");
+                            Log.Info($"Unknown DAT version {datVersion}");
                             return null;
                     }
                 }
